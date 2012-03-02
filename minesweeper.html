@@ -74,22 +74,8 @@ body {
 </style>
 </head>
 <body>
-<!--
-<div id="board" class="board">
-	<div class="tile depressed"><div class="number one">1</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-	<div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-	<div class="tile depressed"></div><div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number two">2</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-	<div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number six">6</div></div><div class="tile depressed"><div class="number three">3</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-	<div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number seven">7</div></div><div class="tile depressed"><div class="number five">5</div></div><div class="tile depressed"><div class="number four">4</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-	<div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number eight">8</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-	<div class="tile"></div><div class="tile"></div><div class="tile depressed"></div><div class="tile depressed"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-	<div id="foo" class="tile"></div><div id="quuz" class="tile"><div id="bar" class="number">&#x263c;</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
-</div>
--->
 <div id="minesweeper"></div>
-<ul>
-<li>Disable left-clicking on marked tiles</li>
-</ul>
+
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 <script>
 $(document).ready(function() {
@@ -99,6 +85,7 @@ $(document).ready(function() {
 		var numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
 		
 		var width, height, mines, $boardElem, boardState;
+		var isMouseDown = false;
 		
 		my.Util = {
 			// Ensure that the input is between min and max, setting it to either end of the bound (preferring min) if it does not fit.
@@ -125,10 +112,18 @@ $(document).ready(function() {
 					column: index % width,
 					row: Math.floor(index / width)
 				}
-			},
+			}
+		}
+		
+		function Tile(_index, _$tile) {
+			var $tile = _$tile;
+			var coordinates = BOARD.Util.coordinatesForIndex(_index);
+			
+			$tile.data('column', coordinates.column);
+			$tile.data('row', coordinates.row);
 			
 			// Returns the neighbor tiles for a tile at the given index.
-			getNeighbors: function(index) {
+			var getNeighbors = function(index) {
 				var x, y, tile;
 				var coordinates = BOARD.Util.coordinatesForIndex(index);
 				var neighbors = [];
@@ -146,19 +141,11 @@ $(document).ready(function() {
 				}
 				
 				return neighbors;
-			}
-		}
-		
-		function Tile(_board, _index, _$tile) {
-			var board = _board;
-			var $tile = _$tile;
-			var coordinates = BOARD.Util.coordinatesForIndex(_index);
+			};
 			
-			$tile.data('column', coordinates.column);
-			$tile.data('row', coordinates.row);
-				
 			return {
 				mine: false,
+				flagged: false,
 				number: 0,
 				$tile: $tile,
 				column: coordinates.column,
@@ -167,8 +154,22 @@ $(document).ready(function() {
 				// Returns an array of Tiles that are adjacent to this tile, including diagonals.
 				getNeighbors: function() {
 					return (function() {
-						return BOARD.Util.getNeighbors(_index);
+						return getNeighbors(_index);
 					}());
+				},
+				
+				isFlagged: function() {
+					return this.flagged;
+				},
+				
+				setFlagged: function(flagged) {
+					if (flagged) {
+						this.$tile.addClass('flagged');
+						this.flagged = true;
+					} else {
+						this.$tile.removeClass('flagged');
+						this.flagged = false;
+					}
 				}
 			}
 		}
@@ -217,26 +218,78 @@ $(document).ready(function() {
 				mousedown: function(event) {
 					// Prevent drag behavior.
 					event.preventDefault();
+
+					tile = $(this).data('tile');
+					
+					isMouseDown = true;
+					if (event.which == 3) {
+						// Cancel further mouse behaviors.
+						isMouseDown = false;
+					}
 					
 					if ($(this).hasClass('depressed')) {
 						return;
 					}
 					
 					if (event.which == 3) {
-						if ($(this).hasClass('flagged')) {
-							$(this).removeClass('flagged');
+						// Cancel further mouse behaviors.
+						isMouseDown = false;
+						tile.setFlagged(!tile.isFlagged());
+						return;
+					}
+					
+					if (!tile.isFlagged()) {
+						isMouseDown = true;
+					
+						$(this).data('current', true);
+						if ($(this).hasClass('depressed')) {
+							console.log('mousedown: tile was depressed.');
+							$(this).data('wasDepressed', true);
 						} else {
-							$(this).addClass('flagged');
+							console.log('mousedown: tile was NOT depressed.');
+							$(this).data('wasDepressed', false);
+							$(this).addClass('depressed');
 						}
-					} else {
-						if (!$(this).hasClass('flagged')) {
-							$(this).trigger('depressed.minesweeper');
+					}
+				},
+				
+				mouseenter: function(event) {
+					if (isMouseDown && !$(this).data('tile').flagged) {
+						$(this).data('current', true);
+						if ($(this).hasClass('depressed')) {
+							console.log('mouseenter: tile was depressed.');
+							$(this).data('wasDepressed', true);
+						} else {
+							console.log('mouseenter: tile was NOT depressed.');
+							$(this).data('wasDepressed', false);
+							$(this).addClass('depressed');
+						}
+					}
+				},
+				
+				mouseleave: function(event) {
+					if (isMouseDown && !$(this).data('tile').flagged) {
+						if ($(this).data('current')) {
+							$(this).data('current', false);
+							
+							$(this).data('current', true);
+							if (!$(this).data('wasDepressed')) {
+								console.log('mouseleave: Tile was not depressed. Removing depressed class.');
+								$(this).removeClass('depressed');
+							}
 						}
 					}
 				},
 				
 				mouseup: function(event) {
-					$(this).off('mouseleave');
+					if (isMouseDown && !$(this).data('tile').flagged) {
+						isMouseDown = false;
+						$(this).off('mouseleave');						
+						$(this).trigger('depressed.minesweeper');
+						$(this).data('wasDepressed', true);
+					} else if ($(this).data('tile').flagged) {
+						isMouseDown = false;
+					}
 				},
 				
 				contextmenu: function() {
@@ -245,15 +298,9 @@ $(document).ready(function() {
 				
 				'depressed.minesweeper': function() {
 					var tile;
-					
-					$(this).addClass('depressed');
-					$(this).one('mouseleave', function(event) {
-						$(this).removeClass('depressed');
-						$(this).off('mouseleave');
-					});
-					
+										
 					//console.log($(this).data('column'), $(this).data('row'));
-					tile = boardState[BOARD.Util.indexForCoordinates($(this).data('column'), $(this).data('row'))];
+					tile = $(this).data('tile');
 					if (tile.mine) {
 						$(this).off('mouseleave');
 						tile.$tile.addClass('mined');
@@ -267,23 +314,22 @@ $(document).ready(function() {
 						
 						while (tiles.length > 0) {
 							var t = tiles.pop();
+							t.$tile.data('considering', false);
+							
 							//console.log('Looking at tile:', t, t.column, t.row);
-							if (t.mine) {
+							if (t.mine || t.flagged) {
 								//console.log('(' + t.column + ', ' + t.row + ') is a mine.');
 								continue;
 							} else if (t.number > 0) {
 								//console.log('(' + t.column + ', ' + t.row + ') is a number. Revealing.');
 								t.$tile.addClass('depressed');
-								t.$tile.data('considering', false);
 								t.$tile.html('<div class="number ' + numbers[t.number] + '">' + t.number + '</div>');
 							} else {
 								//console.log('(' + t.column + ', ' + t.row + ') is an empty square. Revealing and adding neighbors.');
 								t.$tile.addClass('depressed');
-								t.$tile.data('considering', false);
-								neighbors = t.getNeighbors();
-								
-								$.each(neighbors, function(i, neighborTile) {
+								$.each(t.getNeighbors(), function(i, neighborTile) {
 									if (!neighborTile.$tile.data('considering') && !neighborTile.$tile.hasClass('depressed')) {
+										// Mark neighbor tile as under consideration so that we do not add it to the stack again.
 										neighborTile.$tile.data('considering', true);
 										tiles[tiles.length] = neighborTile;
 										//console.log('Added neighbor: ', neighborTile, neighborTile.column, neighborTile.row);
@@ -298,18 +344,11 @@ $(document).ready(function() {
 		
 		function initializeBoardState() {
 			var tiles = $boardElem.children('div.tile').toArray();
-			var i, n, row, column;
+			var i, n;
 			
 			for (i = 0, n = tiles.length; i < n; i++) {
-				/*boardState[i] = $.extend({
-					mine: false,
-					number: 0,
-					$tile: $(tiles[i])
-				}, BOARD.Util.coordinatesForIndex(i));
-				
-				boardState[i].$tile.data('column', boardState[i].column);
-				boardState[i].$tile.data('row', boardState[i].row);*/
-				boardState[i] = Tile(this, i, $(tiles[i]));
+				boardState[i] = Tile(i, $(tiles[i]));
+				$(tiles[i]).data('tile', boardState[i]);
 			}
 		}
 		
@@ -386,6 +425,7 @@ $(document).ready(function() {
 			}
 		}
 		
+		// For debug use only:
 		my.rm = revealMines;
 		
 		function disable() {
@@ -399,7 +439,7 @@ $(document).ready(function() {
 	BOARD.init();
 	BOARD.render($('#minesweeper'));
 	//BOARD.reveal();
-	//BOARD.rm();
+	BOARD.rm();
 });
 </script>
 </body>
