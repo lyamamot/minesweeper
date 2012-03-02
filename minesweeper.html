@@ -309,13 +309,13 @@ $(document).ready(function() {
 					depress: function() {
 						var i, n, neighbors, neighborTile;
 						
+						this.$tile.trigger('minesweeper.tileDepressed');
 						this.reveal();
+						
 						if (this.mined) {
 							this.$tile.addClass('mined');
 							$boardElem.trigger('minesweeper.defeat');
-						} else if (this.number > 0) {
-							// Do nothing.
-						} else {
+						} else if (this.number == 0) {
 							neighbors = this.getNeighbors();
 							for (i = 0, n = neighbors.length; i < n; i++) {
 								neighborTile = neighbors[i];
@@ -325,8 +325,6 @@ $(document).ready(function() {
 								}
 							}
 						}
-
-						this.$tile.trigger('minesweeper.tileDepressed');
 					}
 				};
 			}
@@ -446,7 +444,11 @@ $(document).ready(function() {
 					} else if (event.which === 32) { // Space
 						$(this).trigger({ type: 'mousedown', which: 3 });
 						$(this).trigger({ type: 'mouseup', which: 3 });
-					}
+					} /* else if (event.which == 37) { // Left arrow
+					} else if (event.which == 38) { // Up arrow
+					} else if (event.which == 39) { // Right arrow
+					} else if (event.which == 40) { // Down arrow
+					} */
 				},
 				
 				'minesweeper.tileDepressed': function() {
