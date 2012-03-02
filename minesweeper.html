@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+	background: #c0c0c0;
+}
+
+.board {
+	background: #c0c0c0;
+	line-height: 0;
+	border-top: 2px solid #6e6e6e;
+	border-right: 2px solid #fdfdfd;
+	border-bottom: 2px solid #fdfdfd;
+	border-left: 2px solid #6e6e6e;
+	cursor: default;
+}
+
+.tile {
+	position: relative;
+	width: 16px;
+	height: 16px;
+	border-top: 2px solid #fdfdfd;
+	border-right: 2px solid #6e6e6e;
+	border-bottom: 2px solid #6e6e6e;
+	border-left: 2px solid #fdfdfd;
+	background: #c0c0c0;
+	display: inline-block;
+	padding: 0;
+	margin: 0;
+}
+
+.hover {
+	background: #aaa;
+}
+
+.depressed {
+	border-width: 1px 0 0 1px;
+	border-style: solid;
+	border-color: #6e6e6e;
+	width: 19px;
+	height: 19px;
+}
+
+.flagged {
+	background: #aaa;
+}
+
+.number {
+	top: 50%;
+	position: absolute;
+	font-family: Arial Black, sans-serif;
+	font-weight: bold;
+	-webkit-font-smoothing: none;
+	text-align: center;
+	width: 100%;
+}
+
+.one { color: blue; }
+.two { color: green; }
+.three { color: red; }
+.four { color: #000080; }
+.five { color: #800050; }
+.six { color: #408080; }
+.seven { color: black; }
+.eight { color: gray; }
+
+</style>
+</head>
+<body>
+<div id="board" class="board">
+	<div class="tile depressed"><div class="number one">1</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+	<div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+	<div class="tile depressed"></div><div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number two">2</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+	<div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number six">6</div></div><div class="tile depressed"><div class="number three">3</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+	<div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number seven">7</div></div><div class="tile depressed"><div class="number five">5</div></div><div class="tile depressed"><div class="number four">4</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+	<div class="tile"></div><div class="tile"></div><div class="tile depressed"><div class="number eight">8</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+	<div class="tile"></div><div class="tile"></div><div class="tile depressed"></div><div class="tile depressed"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+	<div id="foo" class="tile"></div><div id="quuz" class="tile"><div id="bar" class="number">&#x263c;</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
+</div>
+</script>
+</body>
+</html>
