@@ -14,6 +14,8 @@ body {
 	border-bottom: 2px solid #fdfdfd;
 	border-left: 2px solid #6e6e6e;
 	cursor: default;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 .tile {
@@ -44,6 +46,10 @@ body {
 
 .flagged {
 	background: #aaa;
+}
+
+.mined {
+	background: #f00;
 }
 
 .number {
@@ -87,47 +93,100 @@ body {
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 <script>
 $(document).ready(function() {
-	"use strict";
-	
-	// Text names of numbers, used for CSS classes.
-	var numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
-	
-	function Board(_width, _height, _mines) {
-		var that = {};
+	var BOARD = (function(my) {
 		
-		// Width of board, in tiles.
-		var width = sanitizeBound(_width, 8, 32);
-		// Height of board, in tiles.
-		var height = sanitizeBound(_height, 8, 32);
-		// Number of mines on the board. Arbitrarily, no more than half the tiles can be mines.
-		var mines = sanitizeBound(_mines, 10, width * height / 2);
+		// Text names of numbers, used for CSS classes.
+		var numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
 		
-		// Element that contains HTML for board.
-		var $boardElem = null;
-		// Array of objects describing state of board. See: initializeBoardState()
-		var boardState = [];
+		var width, height, mines, $boardElem, boardState;
 		
-		// Ensure that the input is between min and max, setting it to either end of the bound (preferring min) if it does not fit.
-		function sanitizeBound(input, min, max) {
-			if (!input) {
-				return min;
-			}
+		my.Util = {
+			// Ensure that the input is between min and max, setting it to either end of the bound (preferring min) if it does not fit.
+			sanitizeBound: function(input, min, max) {
+				if (!input) {
+					return min;
+				}
+				
+				if (input < min) {
+					return min;
+				} else if (input > max) {
+					return max;
+				} else {
+					return input;
+				}
+			},
 			
-			if (input < min) {
-				return min;
-			} else if (input > max) {
-				return max;
-			} else {
-				return input;
+			indexForCoordinates: function(x, y) {
+				return x + y * width;
+			},
+			
+			coordinatesForIndex: function(index) {
+				return {
+					column: index % width,
+					row: Math.floor(index / width)
+				}
+			},
+			
+			// Returns the neighbor tiles for a tile at the given index.
+			getNeighbors: function(index) {
+				var x, y, tile;
+				var coordinates = BOARD.Util.coordinatesForIndex(index);
+				var neighbors = [];
+				
+				for (x = -1; x <= 1; x++) {
+					for (y = -1; y <= 1; y++) {
+						if ((coordinates.column + x < 0 || coordinates.column + x >= width || coordinates.row + y < 0 || coordinates.row + y >= height) // If the coordinates are off the board, continue.
+							|| (x == 0 && y == 0)) { // Do not include the tile itself as a neighbor.
+							continue;
+						}
+
+						adjacentTileIdx = BOARD.Util.indexForCoordinates(coordinates.column + x, coordinates.row + y);
+						neighbors[neighbors.length] = boardState[adjacentTileIdx];
+					}
+				}
+				
+				return neighbors;
 			}
 		}
 		
-		// 
-		function indexForCoordinates(x, y) {
+		function Tile(_board, _index, _$tile) {
+			var board = _board;
+			var $tile = _$tile;
+			var coordinates = BOARD.Util.coordinatesForIndex(_index);
+			
+			$tile.data('column', coordinates.column);
+			$tile.data('row', coordinates.row);
+				
+			return {
+				mine: false,
+				number: 0,
+				$tile: $tile,
+				column: coordinates.column,
+				row: coordinates.row,
+				
+				// Returns an array of Tiles that are adjacent to this tile, including diagonals.
+				getNeighbors: function() {
+					return (function() {
+						return BOARD.Util.getNeighbors(_index);
+					}());
+				}
+			}
 		}
 		
-		function coordinatesForIndex(index) {
+		my.init = function(_width, _height, _mines) {
+			// Width of board, in tiles.
+			width = BOARD.Util.sanitizeBound(_width, 8, 32);
+			// Height of board, in tiles.
+			height = BOARD.Util.sanitizeBound(_height, 8, 32);
+			// Number of mines on the board. Arbitrarily, no more than half the tiles can be mines.
+			mines = BOARD.Util.sanitizeBound(_mines, 10, width * height / 2);
+			
+			// Element that contains HTML for board.
+			$boardElem = null;
+			// Array of objects describing state of board. See: initializeBoardState()
+			boardState = [];
 		}
+		
 		
 		// Creates the markup for the board in the given element and attaches event handlers.
 		function createBoard(elem) {
@@ -170,7 +229,9 @@ $(document).ready(function() {
 							$(this).addClass('flagged');
 						}
 					} else {
-						$(this).trigger('depressed.minesweeper');
+						if (!$(this).hasClass('flagged')) {
+							$(this).trigger('depressed.minesweeper');
+						}
 					}
 				},
 				
@@ -183,13 +244,54 @@ $(document).ready(function() {
 				},
 				
 				'depressed.minesweeper': function() {
+					var tile;
+					
 					$(this).addClass('depressed');
 					$(this).one('mouseleave', function(event) {
 						$(this).removeClass('depressed');
 						$(this).off('mouseleave');
 					});
 					
-					console.log($(this).data('column'), $(this).data('row'));
+					//console.log($(this).data('column'), $(this).data('row'));
+					tile = boardState[BOARD.Util.indexForCoordinates($(this).data('column'), $(this).data('row'))];
+					if (tile.mine) {
+						$(this).off('mouseleave');
+						tile.$tile.addClass('mined');
+						revealMines();
+						disable();
+					} else if (tile.number > 0) {
+						tile.$tile.html('<div class="number ' + numbers[tile.number] + '">' + tile.number + '</div>');
+					} else {
+						var tiles = [tile];
+						var neighbors;
+						
+						while (tiles.length > 0) {
+							var t = tiles.pop();
+							//console.log('Looking at tile:', t, t.column, t.row);
+							if (t.mine) {
+								//console.log('(' + t.column + ', ' + t.row + ') is a mine.');
+								continue;
+							} else if (t.number > 0) {
+								//console.log('(' + t.column + ', ' + t.row + ') is a number. Revealing.');
+								t.$tile.addClass('depressed');
+								t.$tile.data('considering', false);
+								t.$tile.html('<div class="number ' + numbers[t.number] + '">' + t.number + '</div>');
+							} else {
+								//console.log('(' + t.column + ', ' + t.row + ') is an empty square. Revealing and adding neighbors.');
+								t.$tile.addClass('depressed');
+								t.$tile.data('considering', false);
+								neighbors = t.getNeighbors();
+								
+								$.each(neighbors, function(i, neighborTile) {
+									if (!neighborTile.$tile.data('considering') && !neighborTile.$tile.hasClass('depressed')) {
+										neighborTile.$tile.data('considering', true);
+										tiles[tiles.length] = neighborTile;
+										//console.log('Added neighbor: ', neighborTile, neighborTile.column, neighborTile.row);
+									}
+								});
+							}
+						}
+					}
 				}
 			}, 'div.tile');
 		}
@@ -199,49 +301,43 @@ $(document).ready(function() {
 			var i, n, row, column;
 			
 			for (i = 0, n = tiles.length; i < n; i++) {
-				boardState[i] = {
-					column: i % width,
-					row: Math.floor(i / width),
+				/*boardState[i] = $.extend({
 					mine: false,
 					number: 0,
 					$tile: $(tiles[i])
-				};
+				}, BOARD.Util.coordinatesForIndex(i));
 				
 				boardState[i].$tile.data('column', boardState[i].column);
-				boardState[i].$tile.data('row', boardState[i].row);
+				boardState[i].$tile.data('row', boardState[i].row);*/
+				boardState[i] = Tile(this, i, $(tiles[i]));
 			}
 		}
 		
 		function placeMines() {
-			var x, y, tile;
+			var x, y, tile, tileIdx;
 			var adjacentTileIdx;
 			var minesLeft = mines;
 			
 			while (minesLeft > 0) {
 				// Chooose a random location to place a mine.
-				tile = boardState[Math.floor(Math.random() * ((width * height) - 1))];
+				tileIdx = Math.floor(Math.random() * ((width * height) - 1));
+				tile = boardState[tileIdx];
 				if (tile.mine) {
 					continue;
 				}
 				minesLeft -= 1;
 				
 				tile.mine = true;
-				//tile.$tile.addClass('depressed');
-				//tile.$tile.html('<div class="number">&#x263c;</div>');
 								
-				// Increment numbers in tiles around mine./*
-				for (x = -1; x <= 1; x++) {
-					for (y = -1; y <= 1; y++) {
-						adjacentTileIdx = (tile.column + x) + ((tile.row + y) * width);
-						if ((tile.column + x < 0 || tile.column + x >= width || tile.row + y < 0 || tile.row + y >= height) // If the coordinates are off the board, continue.
-							|| boardState[adjacentTileIdx].mine) { // If the tile is already a mine, do not reset it to a number.
-							continue;
-						}
-						//console.log('Mine: (' + tile.column + ', ' + tile.row + ') -- Adjacent Tile: (' + (tile.column + x) + ', ' + (tile.row + y) + ')', adjacentTileIdx);
-						
-						boardState[adjacentTileIdx].number = (boardState[adjacentTileIdx].number || 0) + 1;
+				// Increment numbers in tiles around mine.
+				$.each(tile.getNeighbors(), function(i, neighborTile) {
+					//console.log('Mine: (' + tile.column + ', ' + tile.row + ') -- Adjacent Tile: (' + (neighborTile.column) + ', ' + (neighborTile.row) + ')');
+					if (neighborTile.mine) {
+						return;
 					}
-				}
+					
+					neighborTile.number = (neighborTile.number || 0) + 1;
+				});
 			}
 		}
 		
@@ -251,14 +347,14 @@ $(document).ready(function() {
 		}
 		
 		// Draws the board and initializes game state.
-		that.init = function(elem) {
+		my.render = function(elem) {
 			createBoard(elem);
 			attachEventHandlers();
 			initializeBoard();
 		}
 		
 		// Reveals all squares.
-		that.reveal = function() {
+		my.reveal = function() {
 			for (var i = 0, n = boardState.length; i < n; i++) {
 				/*
 				boardState[i].$tile.addClass('depressed');
@@ -280,12 +376,30 @@ $(document).ready(function() {
 			}
 		}
 		
-		return that;
-	}
+		// Reveals all mine squares.
+		function revealMines() {
+			for (var i = 0, n = boardState.length; i < n; i++) {
+				if (boardState[i].mine) {
+					boardState[i].$tile.html('<div class="number">&#x263c;</div>');
+					boardState[i].$tile.addClass('depressed');
+				}
+			}
+		}
+		
+		my.rm = revealMines;
+		
+		function disable() {
+			$boardElem.off('mousedown');
+			$boardElem.off('mouseup');
+		}
+		
+		return my;
+	}(BOARD || {}));
 	
-	var board = Board();
-	board.init($('#minesweeper'));
-	board.reveal();
+	BOARD.init();
+	BOARD.render($('#minesweeper'));
+	//BOARD.reveal();
+	//BOARD.rm();
 });
 </script>
 </body>
