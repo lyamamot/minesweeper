@@ -81,7 +81,8 @@
 /* -------------------------------------------------------------------- */
 
 body {
-	background: #D7C2C2;
+	color: #fff;
+	background: #56735e;
 	font-family: sans-serif;
 }
 
@@ -101,6 +102,7 @@ body {
 
 #controls {
 	width: 275px;
+	max-width: 275px;
 	float: left;
 	border: 0;
 	padding: 15px;
@@ -110,6 +112,18 @@ body {
 
 #settings {
 	padding: 0 0.5em 1em 0.5em;
+}
+
+#settings label {
+	margin-left: 0.5em;
+	position: relative;
+	top: -0.4em;
+}
+
+#settings .slider_value {
+	display: inline;
+	position: relative;
+	top: -0.4em;
 }
 
 #content {
@@ -147,20 +161,20 @@ body {
 <div id="container">
 	<div id="controls">
 		<div id="settings">
-			<input id="board_size_slider" name="board_size_slider" type="range" min="8" max="32" step="8" value="8">
-			<label for="board_size_slider">Board size: </label><div style="display: inline" id="board_size"></div>
+			<input id="board_size_slider" name="board_size_slider" type="range" min="8" max="32" step="8" accesskey="b" value="8">
+			<label for="board_size_slider">Board size: </label><div class="slider_value" id="board_size"></div>
 
-			<input id="mines_slider" name="mines_slider" type="range" min="1" max="8" value="1">
-			<label for="mines_slider">Mines: </label><div style="display: inline" id="mines"></div>
+			<input id="mines_slider" name="mines_slider" type="range" min="1" max="8" accesskey="m" value="1">
+			<label for="mines_slider">Mines: </label><div class="slider_value" id="mines"></div>
 		</div>
 		
 		<div id="buttons">
-			<button id="new_game">New Game</button>
-			<button id="validate" disabled>Validate</button>
-			<button id="cheat" disabled>Cheat</button>
+			<button id="new_game" accesskey="n">New Game</button>
+			<button id="validate" disabled accesskey="v">Validate</button>
+			<button id="cheat" disabled accesskey="c">Cheat</button>
 			<br>
-			<button id="save" disabled>Save</button>
-			<button id="load">Load</button>
+			<button id="save" disabled accesskey="s">Save</button>
+			<button id="load" accesskey="l">Load</button>
 		</div>
 		
 		<div id="status"></div>
@@ -183,7 +197,9 @@ $(document).ready(function() {
 		// Text names of numbers, used for CSS classes.
 		var numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'],
 			width, height, mines, $boardElem, boardState, tilesRemaining, hasCheated = false,
-			isMouseDown = false, gameListener;
+			isMouseDown = false,
+			isLoaded = false, // Whether or not the current game state comes from a loaded game.
+			gameListener;
 		
 		my.Util = {
 			// Ensure that the input is between min and max, setting it to either end of the bound (preferring min) if it does not fit.
@@ -236,15 +252,18 @@ $(document).ready(function() {
 			},
 
 			// "Constructor" for a Tile object.
-			create: function(index, $tile) {
+			//     index: index into state array boardState
+			//     $tile: DOM element that represents this tile
+			//     loadedState: previously-loaded Tile we should copy
+			create: function(index, $tile, loadedState) {
 				var that = this,
 					flag = '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg"> <g> <rect fill="#000000" stroke="#000000" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="2.5" y="12.5" width="11" height="1" id="svg_2"/> <rect fill="#000000" stroke="#000000" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="5" y="11.5" width="6" height="0.5" id="svg_4"/> <rect id="svg_8" height="5.7" width="0.5" y="5" x="8" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" stroke-width="null" stroke="#000000" fill="#000000"/> <rect id="svg_9" height="0" width="0.1" y="11" x="10.3" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" stroke-width="null" stroke="#000000" fill="#000000"/> <path stroke="#ff0000" transform="rotate(-90 5.69571 4.3)" id="svg_6" d="m3.06001,7.1l2.63572,-5.6l2.6357,5.6l-5.27143,0l0.00001,0z" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" stroke-width="null" fill="#ff0000"/> </g> </svg>',
 					mine = '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg"> <g> <circle stroke="#000000" id="svg_2" r="2.915" cy="8" cx="8" stroke-width="5" fill="#000000"/> <line stroke="#000000" id="svg_4" y2="13.33333" y1="16" x2="8" x1="8" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <line stroke="#000000" id="svg_6" y2="2.66667" y1="0" x2="8" x1="8" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <line stroke="#000000" id="svg_8" y2="8" y1="8" x2="16" x1="13.33333" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <line stroke="#000000" id="svg_10" y2="8" y1="8" x2="2.66667" x1="0" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <rect stroke="#000000" id="svg_1" height="0.352" width="0.352" y="2.66667" x="2.66667" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" id="svg_3" height="0.352" width="0.352" y="2.66667" x="12.97067" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" id="svg_5" height="0.352" width="0.352" y="12.97067" x="12.97067" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" id="svg_7" height="0.352" width="0.352" y="12.97067" x="2.66667" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" fill="#ffffff" stroke-width="0" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="4.8" y="4.8" width="3.25" height="3.5" id="svg_14"/> </g> </svg>';
 				
 				return {
-					mined: false,
-					flagged: false,
-					number: 0,
+					mined: loadedState ? loadedState.mined : false,
+					flagged: loadedState ? loadedState.flagged : false,
+					number: loadedState ? loadedState.number : 0,
 					$tile: $tile,
 					
 					// Returns an array of Tiles that are adjacent to this tile, including diagonals.
@@ -276,38 +295,37 @@ $(document).ready(function() {
 						} else if (this.flagged) {
 							$t.html('<div class="icon">' + flag + '</div>');
 						} else if (this.mined) {
-							$t.addClass('depressed');
-							$t.html('<div class="icon">' + mine + '</div>');
+							$t.addClass('depressed').html('<div class="icon">' + mine + '</div>').attr('tabindex', -1);
 						} else if (this.number > 0) {
-							$t.addClass('depressed');
-							$t.html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>');
+							$t.addClass('depressed').html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>').attr('tabIndex', -1);
 						} else {
-							$t.addClass('depressed');
-							$t.html('');
+							$t.addClass('depressed').html('').attr('tabIndex', -1);
 						}
+						
+						return this;
 					},
 					
 					// Recursively handle the effect of clicking on this tile and its neighbors, as appropriate.
 					depress: function() {
 						var i, n, neighbors, neighborTile;
 						
+						this.reveal();
 						if (this.mined) {
 							this.$tile.addClass('mined');
 							$boardElem.trigger('minesweeper.defeat');
 						} else if (this.number > 0) {
-							this.reveal();
+							// Do nothing.
 						} else {
 							neighbors = this.getNeighbors();
 							for (i = 0, n = neighbors.length; i < n; i++) {
 								neighborTile = neighbors[i];
 								
 								if (!neighborTile.mined && !neighborTile.flagged && !neighborTile.isDepressed()) {
-									neighborTile.reveal();
 									neighborTile.depress();
 								}
 							}
 						}
-						
+
 						this.$tile.trigger('minesweeper.tileDepressed');
 					}
 				};
@@ -317,11 +335,13 @@ $(document).ready(function() {
 		// Creates the markup for the board in the given element and attaches event handlers.
 		function createBoard(elem) {
 			var board = '<div class="board">',
-				tile = '<div class="tile"></div>',
+				tile = '<div class="tile" tabindex="0"></div>',
 				i, j;
 			
 			for (i = 0; i < width; i++) {
 				for (j = 0; j < height; j++) {
+					// Debug code to see index of tile.
+					//board += tile.replace('>', ' title="' + (i * width + j) + '">');
 					board += tile;
 				}
 				board += '<br />';
@@ -419,9 +439,19 @@ $(document).ready(function() {
 					return false;
 				},
 				
+				keypress: function(event) {
+					if (event.which === 13) { // Enter
+						$(this).trigger('mousedown');
+						$(this).trigger('mouseup');
+					} else if (event.which === 32) { // Space
+						$(this).trigger({ type: 'mousedown', which: 3 });
+						$(this).trigger({ type: 'mouseup', which: 3 });
+					}
+				},
+				
 				'minesweeper.tileDepressed': function() {
 					tilesRemaining -= 1;
-					
+
 					if (tilesRemaining == 0) {
 						$boardElem.trigger('minesweeper.victory');
 					} else if (tilesRemaining < 0) {
@@ -441,14 +471,14 @@ $(document).ready(function() {
 						}
 					}
 
-					gameListener.victory({ hasCheated: hasCheated });
 					$boardElem.trigger('minesweeper.end');
+					gameListener.victory({ hasCheated: hasCheated });
 				},
 				
 				'minesweeper.defeat': function() {
 					revealMines();
-					gameListener.defeat({ hasCheated: hasCheated });
 					$boardElem.trigger('minesweeper.end');
+					gameListener.defeat({ hasCheated: hasCheated });
 				},
 				
 				'minesweeper.end': function() {
@@ -487,23 +517,37 @@ $(document).ready(function() {
 		
 		function initializeBoardState() {
 			var tiles = $boardElem.children('div.tile').toArray(),
-				i, n;
-			
+				i, n, $t, wasDepressed = false;
+				
 			for (i = 0, n = tiles.length; i < n; i++) {
-				boardState[i] = BOARD.Tile.create(i, $(tiles[i]));
-				$(tiles[i]).data('tile', boardState[i]);
+				wasDepressed = false;
+				$t = $(tiles[i]);
+				if (boardState[i] && boardState[i].wasDepressed) {
+					wasDepressed = true;
+				}
+				boardState[i] = BOARD.Tile.create(i, $t, boardState[i]);
+				if (wasDepressed || boardState[i].flagged) {
+					delete boardState[i].wasDepressed;
+					boardState[i].reveal();
+				}
+				$t.data('tile', boardState[i]);
 			}
 		}
 		
 		function initializeBoard() {
 			initializeBoardState();
-			placeMines();
+			if (!isLoaded) {
+				placeMines();
+			}
 		}
 		
 		// Initializes game state but does not render the board.
 		// gameListener: callback for game events.
 		my.init = function(myGameListener, myWidth, myHeight, myMines) {
 			gameListener = myGameListener || gameListener || {};
+			
+			// Whether or not the current game state comes from a loaded game.
+			isLoaded = false;
 			
 			// Width of board, in tiles.
 			width = BOARD.Util.sanitizeBound(myWidth, 8, 128);
@@ -517,12 +561,10 @@ $(document).ready(function() {
 			// Array of objects describing state of board. See: initializeBoardState()
 			boardState = [];
 			
-			hasCheated = false;
-			
-			mines = 1;
-			
-			// Number of pressable tiles left.
+			// Number of depressable tiles left.
 			tilesRemaining = width * height - mines;
+			
+			hasCheated = false;
 		};
 		
 		// Draws the board and initializes game state.
@@ -583,48 +625,55 @@ $(document).ready(function() {
 		
 		// Gather game state and return as JSON.
 		my.save = function() {
-			var i = 0, n = boardState.length, state = {}, tile, currentBoard = [];
+			var i = 0, n = boardState.length, state = {}, tile, currentBoard = [], game = '';
 			
-			state.game = {
-				width: width,
-				height: height,
-				mines: mines,
-				tilesRemaining: tilesRemaining,
-				hasCheated: hasCheated
-			};
-			
+			game = width + '|' + height + '|' + mines + '|' + tilesRemaining + '|' + (hasCheated ? 1 : 0) + '-';
 			
 			for (; i < n; i++) {
-				tile = $.extend({}, boardState[i]);
-				delete tile.$tile;
-				
-				currentBoard[i] = tile;
+				game += (boardState[i].mined ? 1 : 0);
+				game += (boardState[i].flagged ? 1 : 0);
+				game += boardState[i].number;
+				game += (boardState[i].isDepressed() ? 1 : 0);
 			}
-			state.board = currentBoard;
 			
-			return JSON.stringify(state);
+			return game;
 		};
 		
 		// Gather game state and return as JSON.
-		my.load = function(stateJson) {
-			var json = $.parseJSON(stateJson),
-				i, n, tile, loadedBoard;
+		my.load = function(state) {
+			var states, gameState, tileStates,
+				i, n, loadedBoard;
 			
-			BOARD.init(undefined, json.game.width, json.game.height, json.game.mines);
+			if (!state || state.length <= 0) {
+				return;
+			}
+			
+			try {
+				states = state.split('-');
+				gameState = states[0].split('|');
+				tileStates = states[1];
+				
+				BOARD.init(undefined, gameState[0], gameState[1], gameState[2]);
+				isLoaded = true;
+				tilesRemaining = gameState[3];
+				hasCheated = 1 == gameState[4];
 
-			tilesRemaining = json.game.tilesRemaining;
-			hasCheated = json.game.hasCheated;
-			BOARD.render($('#minesweeper'));
-			
-			loadedBoard = json.board;
-			for (i = 0, n = boardState.length; i < n; i++) {
-				boardState[i] = $.extend(boardState[i], loadedBoard[i]);
+				for (i = 0, n = tileStates.length / 4; i / 4 < n; i += 4) {
+					boardState[i / 4] = $.extend(boardState[i / 4], {
+						mined: 1 == tileStates.slice(i, i + 1),
+						flagged: 1 == tileStates.slice(i + 1, i + 2),
+						number: Number(tileStates.slice(i + 2, i + 3)),
+						wasDepressed: 1 == tileStates.slice(i + 3, i + 4)
+					});
+				}
+			} catch (e) {
+				console.warn('Could not load state:', state);
 			}
 		};
 		
 		return my;
 	}(BOARD || {}));
-
+	
 	// Initialize the game state from the page controls;
 	function initializeFromPage() {
 		BOARD.init({
@@ -646,6 +695,7 @@ $(document).ready(function() {
 			}
 		}, $('#board_size').html(), $('#board_size').html(), $('#mines').html());
 	}
+	initializeFromPage();
 	
 	$('#board_size_slider').on('change', function() {
 		$('#board_size').html(this.value);
@@ -662,6 +712,8 @@ $(document).ready(function() {
 		}
 		
 		$('#mines').html(mineCount);
+		
+		initializeFromPage();
 	});
 	$('#mines_slider').change();
 	
@@ -689,12 +741,13 @@ $(document).ready(function() {
 				
 			$(this).removeData('isInGame');
 			$('#new_game').html('New Game');
+			$('#saveState').html('');
 			
 			enable([ $('#board_size_slider'), $('#mines_slider'), $('#load') ]);
 			disable([ $('#validate'), $('#cheat'), $('#save') ]);
-		} else {
-			// Initialize a new state for next time.
+			
 			initializeFromPage();
+		} else {
 			BOARD.render($('#minesweeper'));
 			
 			// Start a new game.
