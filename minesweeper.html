@@ -153,9 +153,8 @@ $(document).ready(function() {
 				$tile.data('row', coordinates.row);
 				
 				return {
-					mine: false,
 					flagged: false,
-					number: 0,
+					value: 0, // -1 = mine, 0 = empty, 1 - 8 = number.
 					$tile: $tile,
 					column: coordinates.column,
 					row: coordinates.row,
@@ -165,6 +164,18 @@ $(document).ready(function() {
 						return (function() {
 							return that.getNeighbors(index);
 						}());
+					},
+					
+					isMined: function() {
+						return this.value === -1;
+					},
+					
+					setMined: function() {
+						this.value = -1;
+					},
+					
+					isDepressed: function() {
+						return this.$tile.hasClass('depressed')
 					},
 					
 					isFlagged: function() {
@@ -182,16 +193,16 @@ $(document).ready(function() {
 					},
 					
 					reveal: function() {
-						if (this.mine) {
+						if (this.isMined()) {
 							this.$tile.addClass('mined');
 							board.revealMines();
 							board.disable();
-						} else if (this.number > 0) {
-							this.$tile.html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>');
+						} else if (this.value > 0) {
+							this.$tile.html('<div class="number ' + numbers[this.value] + '">' + this.value + '</div>');
 						} else {
 							var tiles = [this], t,
 								addNeighborsCallback = function(neighborTile) {
-									if (!neighborTile.$tile.data('considering') && !neighborTile.$tile.hasClass('depressed')) {
+									if (!neighborTile.$tile.data('considering') && !neighborTile.isDepressed()) {
 										// Mark neighbor tile as under consideration so that we do not add it to the stack again.
 										neighborTile.$tile.data('considering', true);
 										tiles[tiles.length] = neighborTile;
@@ -204,14 +215,13 @@ $(document).ready(function() {
 								t.$tile.removeData('considering');
 								
 								//console.log('Looking at tile:', t, t.column, t.row);
-								if (!t.mine && !t.flagged) {
-									if (t.number > 0) {
+								if (!t.isMined() && !t.isFlagged()) {
+									t.$tile.addClass('depressed');
+									if (t.value > 0) {
 										//console.log('(' + t.column + ', ' + t.row + ') is a number. Revealing.');
-										t.$tile.addClass('depressed');
-										t.$tile.html('<div class="number ' + numbers[t.number] + '">' + t.number + '</div>');
+										t.$tile.html('<div class="number ' + numbers[t.value] + '">' + t.value + '</div>');
 									} else {
 										//console.log('(' + t.column + ', ' + t.row + ') is an empty square. Revealing and adding neighbors.');
-										t.$tile.addClass('depressed');
 										$.map(t.getNeighbors(), addNeighborsCallback);
 									}
 								}
@@ -220,20 +230,6 @@ $(document).ready(function() {
 					}
 				};
 			}
-		};
-		
-		my.init = function(myWidth, myHeight, myMines) {
-			// Width of board, in tiles.
-			width = BOARD.Util.sanitizeBound(myWidth, 8, 32);
-			// Height of board, in tiles.
-			height = BOARD.Util.sanitizeBound(myHeight, 8, 32);
-			// Number of mines on the board. Arbitrarily, no more than half the tiles can be mines.
-			mines = BOARD.Util.sanitizeBound(myMines, 10, width * height / 2);
-			
-			// Element that contains HTML for board.
-			$boardElem = null;
-			// Array of objects describing state of board. See: initializeBoardState()
-			boardState = [];
 		};
 		
 		// Creates the markup for the board in the given element and attaches event handlers.
@@ -263,33 +259,30 @@ $(document).ready(function() {
 		function attachEventHandlers() {
 			$boardElem.on({
 				mousedown: function(event) {
+					var tile = $(this).data('tile');
+					
 					// Prevent drag behavior.
 					event.preventDefault();
 
-					var tile = $(this).data('tile');
-					
-					isMouseDown = true;
-					
 					// If it's the right mouse button that's down...
 					if (event.which === 3) {
-						// Cancel further mouse behaviors.
-						isMouseDown = false;
-						
-						
-						if (!$(this).hasClass('depressed')) {
+						if (!isMouseDown && !tile.isDepressed()) { // If we're not already in the middle of a left-click and tile is not already depressed...
 							tile.setFlagged(!tile.isFlagged());
 						}
 						
 						return;
+					} else {
+						isMouseDown = true;
 					}
 					
-					// If the tile is already pressed, nothing we can do now.
 					$(this).trigger('mouseenter');
 				},
 				
 				mouseenter: function() {
-					$(this).data('wasDepressed', $(this).hasClass('depressed'));
-					if (isMouseDown && !$(this).data('tile').flagged) {	
+					var tile = $(this).data('tile');
+					
+					$(this).data('wasDepressed', tile.isDepressed());
+					if (isMouseDown && !tile.isFlagged()) {	
 						if (!$(this).data('wasDepressed')) {
 							$(this).addClass('depressed');
 						}
@@ -297,22 +290,28 @@ $(document).ready(function() {
 				},
 				
 				mouseleave: function() {
-					if (isMouseDown && !$(this).data('tile').flagged) {
+					var tile = $(this).data('tile');
+					
+					if (isMouseDown && !tile.isFlagged()) {
 						if (!$(this).data('wasDepressed')) {
 							$(this).removeClass('depressed');
 						}
 					}
 				},
 				
-				mouseup: function() {
+				mouseup: function(event) {
 					var tile = $(this).data('tile');
 					
-					if (isMouseDown && !tile.flagged) {
+					if (event.which === 3) {
+						// Ignore right-click mouseup events.
+						return;
+					}
+					
+					if (tile.isFlagged()) {
+						isMouseDown = false;
+					} else if (isMouseDown) {
 						isMouseDown = false;
 						tile.reveal();
-						$(this).data('wasDepressed', true);
-					} else if ($(this).data('tile').flagged) {
-						isMouseDown = false;
 					}
 				},
 				
@@ -327,21 +326,21 @@ $(document).ready(function() {
 				minesLeft = mines,
 				incrementNeighborCallback = function(neighborTile) {
 					//console.log('Mine: (' + tile.column + ', ' + tile.row + ') -- Adjacent Tile: (' + (neighborTile.column) + ', ' + (neighborTile.row) + ')');
-					if (neighborTile.mine) {
+					if (neighborTile.isMined()) {
 						return;
 					}
 					
-					neighborTile.number = (neighborTile.number || 0) + 1;
+					neighborTile.value = (neighborTile.value || 0) + 1;
 				};
 			
 			while (minesLeft > 0) {
 				// Chooose a random location to place a mine.
 				tileIdx = Math.floor(Math.random() * ((width * height) - 1));
 				tile = boardState[tileIdx];
-				if (!tile.mine) {
+				if (!tile.isMined()) {
 					minesLeft -= 1;
 					
-					tile.mine = true;
+					tile.setMined();
 									
 					// Increment numbers in tiles around mine.
 					$.map(tile.getNeighbors(), incrementNeighborCallback);
@@ -354,11 +353,11 @@ $(document).ready(function() {
 			var i, n;
 			
 			for (i = 0, n = boardState.length; i < n; i++) {
-				if (boardState[i].flagged && !boardState[i].mine) {
+				if (boardState[i].isFlagged() && !boardState[i].isMined()) {
 					boardState[i].$tile.html('<div class="number">&#x263c;</div><div class="number misflagged">X</div>');
 					boardState[i].$tile.removeClass('flagged');
 					boardState[i].$tile.addClass('depressed');
-				} else if (!boardState[i].flagged && boardState[i].mine) {
+				} else if (!boardState[i].isFlagged() && boardState[i].isMined()) {
 					boardState[i].$tile.html('<div class="number">&#x263c;</div>');
 					if (!cheat) {
 						boardState[i].$tile.addClass('depressed');
@@ -394,7 +393,27 @@ $(document).ready(function() {
 			initializeBoard();
 		};
 		
+		my.init = function(elem, myWidth, myHeight, myMines) {
+			// Width of board, in tiles.
+			width = BOARD.Util.sanitizeBound(myWidth, 8, 32);
+			// Height of board, in tiles.
+			height = BOARD.Util.sanitizeBound(myHeight, 8, 32);
+			// Number of mines on the board. Arbitrarily, no more than half the tiles can be mines.
+			mines = BOARD.Util.sanitizeBound(myMines, 10, width * height / 2);
+			
+			// Element that contains HTML for board.
+			$boardElem = null;
+			// Array of objects describing state of board. See: initializeBoardState()
+			boardState = [];
+			
+			my.render(elem);
+		};
+		
 		my.validate = function() {
+			var i, n;
+			
+			for (i = 0, n = boardState.length; i < n; i++) {
+			}
 		};
 		
 		// Reveals all squares.
@@ -402,21 +421,12 @@ $(document).ready(function() {
 			var i, n;
 			
 			for (i = 0, n = boardState.length; i < n; i++) {
-				/*
-				boardState[i].$tile.addClass('depressed');
-				if (boardState[i].mine) {
+				if (boardState[i].isMined()) {
 					boardState[i].$tile.html('<div class="number">&#x263c;</div>');
-				} else if (boardState[i].number > 0) {
-					boardState[i].$tile.html('<div class="number ' + numbers[boardState[i].number] + '">' + boardState[i].number + '</div>');
-				}
-				*/
-				
-				if (boardState[i].mine) {
-					boardState[i].$tile.html('<div class="number">&#x263c;</div>');
-				} else if (boardState[i].number > 0) {
+				} else if (boardState[i].value > 0) {
 					boardState[i].$tile.addClass('depressed');
-					boardState[i].$tile.html('<div class="number ' + numbers[boardState[i].number] + '">' + boardState[i].number + '</div>');
-				} else if (!boardState[i].mine) {
+					boardState[i].$tile.html('<div class="number ' + numbers[boardState[i].value] + '">' + boardState[i].value + '</div>');
+				} else if (!boardState[i].isMined()) {
 					boardState[i].$tile.addClass('depressed');
 				}
 			}
@@ -428,13 +438,12 @@ $(document).ready(function() {
 		return my;
 	}(BOARD || {}));
 
-	BOARD.init();
-	BOARD.render($('#minesweeper'));
+	BOARD.init($('#minesweeper'));
 	BOARD.validate(function() {
 	});
 	//BOARD.rm();
 	
-	$('#new_game').on('click', function() { BOARD.init(); BOARD.render($('#minesweeper')); });
+	$('#new_game').on('click', function() { BOARD.init($('#minesweeper')); });
 	$('#cheat').on('click', function() { BOARD.rm(true); });
 });
 </script>
