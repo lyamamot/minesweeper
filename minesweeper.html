@@ -68,6 +68,7 @@ body {
 </style>
 </head>
 <body>
+<!--
 <div id="board" class="board">
 	<div class="tile depressed"><div class="number one">1</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
 	<div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
@@ -78,6 +79,214 @@ body {
 	<div class="tile"></div><div class="tile"></div><div class="tile depressed"></div><div class="tile depressed"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
 	<div id="foo" class="tile"></div><div id="quuz" class="tile"><div id="bar" class="number">&#x263c;</div></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><div class="tile"></div><br />
 </div>
+-->
+<div id="minesweeper"></div>
+<ul>
+<li>Disable left-clicking on marked tiles</li>
+</ul>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script>
+$(document).ready(function() {
+	"use strict";
+	
+	// Text names of numbers, used for CSS classes.
+	var numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+	
+	function Board(_width, _height, _mines) {
+		var that = {};
+		
+		// Width of board, in tiles.
+		var width = sanitizeBound(_width, 8, 32);
+		// Height of board, in tiles.
+		var height = sanitizeBound(_height, 8, 32);
+		// Number of mines on the board. Arbitrarily, no more than half the tiles can be mines.
+		var mines = sanitizeBound(_mines, 10, width * height / 2);
+		
+		// Element that contains HTML for board.
+		var $boardElem = null;
+		// Array of objects describing state of board. See: initializeBoardState()
+		var boardState = [];
+		
+		// Ensure that the input is between min and max, setting it to either end of the bound (preferring min) if it does not fit.
+		function sanitizeBound(input, min, max) {
+			if (!input) {
+				return min;
+			}
+			
+			if (input < min) {
+				return min;
+			} else if (input > max) {
+				return max;
+			} else {
+				return input;
+			}
+		}
+		
+		// 
+		function indexForCoordinates(x, y) {
+		}
+		
+		function coordinatesForIndex(index) {
+		}
+		
+		// Creates the markup for the board in the given element and attaches event handlers.
+		function createBoard(elem) {
+			var board = '<div class="board">',
+				tile = '<div class="tile"></div>',
+				i, j;
+			
+			for (i = 0; i < width; i++) {
+				for (j = 0; j < height; j++) {
+					board += tile;
+				}
+				board += '<br />';
+			}
+			board += '</div>';
+			
+			$(elem).html(board);
+			$boardElem = $('div.board', $(elem));
+			
+			// Calculate board size based on tile dimensions and borders.
+			// Hardcode 20 = 16 tile width and height + 2 each for border.
+			// We could also use a plugin to read the CSS style.
+			$boardElem.css('width', 20 * width);
+			$boardElem.css('height', 20 * height);
+		}
+		
+		function attachEventHandlers() {
+			$boardElem.on({
+				mousedown: function(event) {
+					// Prevent drag behavior.
+					event.preventDefault();
+					
+					if ($(this).hasClass('depressed')) {
+						return;
+					}
+					
+					if (event.which == 3) {
+						if ($(this).hasClass('flagged')) {
+							$(this).removeClass('flagged');
+						} else {
+							$(this).addClass('flagged');
+						}
+					} else {
+						$(this).trigger('depressed.minesweeper');
+					}
+				},
+				
+				mouseup: function(event) {
+					$(this).off('mouseleave');
+				},
+				
+				contextmenu: function() {
+					return false;
+				},
+				
+				'depressed.minesweeper': function() {
+					$(this).addClass('depressed');
+					$(this).one('mouseleave', function(event) {
+						$(this).removeClass('depressed');
+						$(this).off('mouseleave');
+					});
+					
+					console.log($(this).data('column'), $(this).data('row'));
+				}
+			}, 'div.tile');
+		}
+		
+		function initializeBoardState() {
+			var tiles = $boardElem.children('div.tile').toArray();
+			var i, n, row, column;
+			
+			for (i = 0, n = tiles.length; i < n; i++) {
+				boardState[i] = {
+					column: i % width,
+					row: Math.floor(i / width),
+					mine: false,
+					number: 0,
+					$tile: $(tiles[i])
+				};
+				
+				boardState[i].$tile.data('column', boardState[i].column);
+				boardState[i].$tile.data('row', boardState[i].row);
+			}
+		}
+		
+		function placeMines() {
+			var x, y, tile;
+			var adjacentTileIdx;
+			var minesLeft = mines;
+			
+			while (minesLeft > 0) {
+				// Chooose a random location to place a mine.
+				tile = boardState[Math.floor(Math.random() * ((width * height) - 1))];
+				if (tile.mine) {
+					continue;
+				}
+				minesLeft -= 1;
+				
+				tile.mine = true;
+				//tile.$tile.addClass('depressed');
+				//tile.$tile.html('<div class="number">&#x263c;</div>');
+								
+				// Increment numbers in tiles around mine./*
+				for (x = -1; x <= 1; x++) {
+					for (y = -1; y <= 1; y++) {
+						adjacentTileIdx = (tile.column + x) + ((tile.row + y) * width);
+						if ((tile.column + x < 0 || tile.column + x >= width || tile.row + y < 0 || tile.row + y >= height) // If the coordinates are off the board, continue.
+							|| boardState[adjacentTileIdx].mine) { // If the tile is already a mine, do not reset it to a number.
+							continue;
+						}
+						//console.log('Mine: (' + tile.column + ', ' + tile.row + ') -- Adjacent Tile: (' + (tile.column + x) + ', ' + (tile.row + y) + ')', adjacentTileIdx);
+						
+						boardState[adjacentTileIdx].number = (boardState[adjacentTileIdx].number || 0) + 1;
+					}
+				}
+			}
+		}
+		
+		function initializeBoard() {
+			initializeBoardState();
+			placeMines();
+		}
+		
+		// Draws the board and initializes game state.
+		that.init = function(elem) {
+			createBoard(elem);
+			attachEventHandlers();
+			initializeBoard();
+		}
+		
+		// Reveals all squares.
+		that.reveal = function() {
+			for (var i = 0, n = boardState.length; i < n; i++) {
+				/*
+				boardState[i].$tile.addClass('depressed');
+				if (boardState[i].mine) {
+					boardState[i].$tile.html('<div class="number">&#x263c;</div>');
+				} else if (boardState[i].number > 0) {
+					boardState[i].$tile.html('<div class="number ' + numbers[boardState[i].number] + '">' + boardState[i].number + '</div>');
+				}
+				*/
+				
+				if (boardState[i].mine) {
+					boardState[i].$tile.html('<div class="number">&#x263c;</div>');
+				} else if (boardState[i].number > 0) {
+					boardState[i].$tile.addClass('depressed');
+					boardState[i].$tile.html('<div class="number ' + numbers[boardState[i].number] + '">' + boardState[i].number + '</div>');
+				} else if (!boardState[i].mine) {
+					boardState[i].$tile.addClass('depressed');
+				}
+			}
+		}
+		
+		return that;
+	}
+	
+	var board = Board();
+	board.init($('#minesweeper'));
+	board.reveal();
+});
 </script>
 </body>
 </html>
