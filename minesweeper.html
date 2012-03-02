@@ -44,22 +44,26 @@ body {
 	height: 19px;
 }
 
-.flagged {
-	background: #aaa;
-}
-
-.mined {
-	background: #f00;
-}
-
 .number {
 	top: 50%;
 	position: absolute;
 	font-family: Arial Black, sans-serif;
 	font-weight: bold;
-	-webkit-font-smoothing: none;
 	text-align: center;
 	width: 100%;
+}
+
+.flagged {
+	background: #aaa;
+}
+
+.misflagged {
+	font-weight: normal;
+	color: #f00;
+}
+
+.mined {
+	background: #f00;
 }
 
 .one { color: blue; }
@@ -115,7 +119,8 @@ $(document).ready(function() {
 			}
 		}
 		
-		function Tile(_index, _$tile) {
+		function Tile(_board, _index, _$tile) {
+			var board = _board;
 			var $tile = _$tile;
 			var coordinates = BOARD.Util.coordinatesForIndex(_index);
 			
@@ -170,6 +175,45 @@ $(document).ready(function() {
 						this.$tile.removeClass('flagged');
 						this.flagged = false;
 					}
+				},
+				
+				reveal: function() {
+					if (this.mine) {
+						this.$tile.addClass('mined');
+						board.revealMines();
+						board.disable();
+					} else if (this.number > 0) {
+						this.$tile.html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>');
+					} else {
+						var tiles = [this];
+						var neighbors;
+						
+						while (tiles.length > 0) {
+							var t = tiles.pop();
+							t.$tile.removeData('considering');
+							
+							//console.log('Looking at tile:', t, t.column, t.row);
+							if (t.mine || t.flagged) {
+								//console.log('(' + t.column + ', ' + t.row + ') is a mine.');
+								continue;
+							} else if (t.number > 0) {
+								//console.log('(' + t.column + ', ' + t.row + ') is a number. Revealing.');
+								t.$tile.addClass('depressed');
+								t.$tile.html('<div class="number ' + numbers[t.number] + '">' + t.number + '</div>');
+							} else {
+								//console.log('(' + t.column + ', ' + t.row + ') is an empty square. Revealing and adding neighbors.');
+								t.$tile.addClass('depressed');
+								$.each(t.getNeighbors(), function(i, neighborTile) {
+									if (!neighborTile.$tile.data('considering') && !neighborTile.$tile.hasClass('depressed')) {
+										// Mark neighbor tile as under consideration so that we do not add it to the stack again.
+										neighborTile.$tile.data('considering', true);
+										tiles[tiles.length] = neighborTile;
+										//console.log('Added neighbor: ', neighborTile, neighborTile.column, neighborTile.row);
+									}
+								});
+							}
+						}
+					}
 				}
 			}
 		}
@@ -222,46 +266,28 @@ $(document).ready(function() {
 					tile = $(this).data('tile');
 					
 					isMouseDown = true;
+					
+					// If it's the right mouse button that's down...
 					if (event.which == 3) {
 						// Cancel further mouse behaviors.
 						isMouseDown = false;
-					}
-					
-					if ($(this).hasClass('depressed')) {
-						return;
-					}
-					
-					if (event.which == 3) {
-						// Cancel further mouse behaviors.
-						isMouseDown = false;
-						tile.setFlagged(!tile.isFlagged());
-						return;
-					}
-					
-					if (!tile.isFlagged()) {
-						isMouseDown = true;
-					
-						$(this).data('current', true);
-						if ($(this).hasClass('depressed')) {
-							console.log('mousedown: tile was depressed.');
-							$(this).data('wasDepressed', true);
-						} else {
-							console.log('mousedown: tile was NOT depressed.');
-							$(this).data('wasDepressed', false);
-							$(this).addClass('depressed');
+						
+						
+						if (!$(this).hasClass('depressed')) {
+							tile.setFlagged(!tile.isFlagged());
 						}
+						
+						return;
 					}
+					
+					// If the tile is already pressed, nothing we can do now.
+					$(this).trigger('mouseenter');
 				},
 				
 				mouseenter: function(event) {
-					if (isMouseDown && !$(this).data('tile').flagged) {
-						$(this).data('current', true);
-						if ($(this).hasClass('depressed')) {
-							console.log('mouseenter: tile was depressed.');
-							$(this).data('wasDepressed', true);
-						} else {
-							console.log('mouseenter: tile was NOT depressed.');
-							$(this).data('wasDepressed', false);
+					$(this).data('wasDepressed', $(this).hasClass('depressed'));
+					if (isMouseDown && !$(this).data('tile').flagged) {	
+						if (!$(this).data('wasDepressed')) {
 							$(this).addClass('depressed');
 						}
 					}
@@ -269,23 +295,18 @@ $(document).ready(function() {
 				
 				mouseleave: function(event) {
 					if (isMouseDown && !$(this).data('tile').flagged) {
-						if ($(this).data('current')) {
-							$(this).data('current', false);
-							
-							$(this).data('current', true);
-							if (!$(this).data('wasDepressed')) {
-								console.log('mouseleave: Tile was not depressed. Removing depressed class.');
-								$(this).removeClass('depressed');
-							}
+						if (!$(this).data('wasDepressed')) {
+							$(this).removeClass('depressed');
 						}
 					}
 				},
 				
 				mouseup: function(event) {
-					if (isMouseDown && !$(this).data('tile').flagged) {
+					var tile = $(this).data('tile');
+					
+					if (isMouseDown && !tile.flagged) {
 						isMouseDown = false;
-						$(this).off('mouseleave');						
-						$(this).trigger('depressed.minesweeper');
+						tile.reveal();
 						$(this).data('wasDepressed', true);
 					} else if ($(this).data('tile').flagged) {
 						isMouseDown = false;
@@ -294,50 +315,6 @@ $(document).ready(function() {
 				
 				contextmenu: function() {
 					return false;
-				},
-				
-				'depressed.minesweeper': function() {
-					var tile;
-										
-					//console.log($(this).data('column'), $(this).data('row'));
-					tile = $(this).data('tile');
-					if (tile.mine) {
-						$(this).off('mouseleave');
-						tile.$tile.addClass('mined');
-						revealMines();
-						disable();
-					} else if (tile.number > 0) {
-						tile.$tile.html('<div class="number ' + numbers[tile.number] + '">' + tile.number + '</div>');
-					} else {
-						var tiles = [tile];
-						var neighbors;
-						
-						while (tiles.length > 0) {
-							var t = tiles.pop();
-							t.$tile.data('considering', false);
-							
-							//console.log('Looking at tile:', t, t.column, t.row);
-							if (t.mine || t.flagged) {
-								//console.log('(' + t.column + ', ' + t.row + ') is a mine.');
-								continue;
-							} else if (t.number > 0) {
-								//console.log('(' + t.column + ', ' + t.row + ') is a number. Revealing.');
-								t.$tile.addClass('depressed');
-								t.$tile.html('<div class="number ' + numbers[t.number] + '">' + t.number + '</div>');
-							} else {
-								//console.log('(' + t.column + ', ' + t.row + ') is an empty square. Revealing and adding neighbors.');
-								t.$tile.addClass('depressed');
-								$.each(t.getNeighbors(), function(i, neighborTile) {
-									if (!neighborTile.$tile.data('considering') && !neighborTile.$tile.hasClass('depressed')) {
-										// Mark neighbor tile as under consideration so that we do not add it to the stack again.
-										neighborTile.$tile.data('considering', true);
-										tiles[tiles.length] = neighborTile;
-										//console.log('Added neighbor: ', neighborTile, neighborTile.column, neighborTile.row);
-									}
-								});
-							}
-						}
-					}
 				}
 			}, 'div.tile');
 		}
@@ -347,7 +324,7 @@ $(document).ready(function() {
 			var i, n;
 			
 			for (i = 0, n = tiles.length; i < n; i++) {
-				boardState[i] = Tile(i, $(tiles[i]));
+				boardState[i] = Tile({ revealMines: revealMines, disable: disable }, i, $(tiles[i]));
 				$(tiles[i]).data('tile', boardState[i]);
 			}
 		}
@@ -415,10 +392,13 @@ $(document).ready(function() {
 			}
 		}
 		
-		// Reveals all mine squares.
+		// Reveals all mine squares and incorrectly flagged tiles.
 		function revealMines() {
 			for (var i = 0, n = boardState.length; i < n; i++) {
-				if (boardState[i].mine) {
+				if (boardState[i].flagged && !boardState[i].mine) {
+					boardState[i].$tile.html('<div class="number">&#x263c;</div><div class="number misflagged">X</div>');
+					boardState[i].$tile.addClass('depressed');
+				} else if (boardState[i].mine) {
 					boardState[i].$tile.html('<div class="number">&#x263c;</div>');
 					boardState[i].$tile.addClass('depressed');
 				}
@@ -438,7 +418,6 @@ $(document).ready(function() {
 	
 	BOARD.init();
 	BOARD.render($('#minesweeper'));
-	//BOARD.reveal();
 	BOARD.rm();
 });
 </script>
