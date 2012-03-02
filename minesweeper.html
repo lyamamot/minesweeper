@@ -81,7 +81,7 @@
 /* -------------------------------------------------------------------- */
 
 body {
-	background: #fffeee;
+	background: #D7C2C2;
 	font-family: sans-serif;
 }
 
@@ -94,7 +94,6 @@ body {
 
 #main {
 	width: 100%;
-	background-color: #fffeee;
 	float: left;
 	padding: 0;
 	margin: 0;
@@ -114,20 +113,28 @@ body {
 }
 
 #content {
-	background-color: #fffeee;
-	margin: 0 0 0 300px;
+	float: left;
 	padding: 20px;
 	min-height: 500px;
 }
 
 #minesweeper {
 	padding: 10px;
-	background-color: #c0c0c0;
+	background: #c0c0c0;
 	
 	border-top: 2px solid #fdfdfd;
 	border-right: 2px solid #6e6e6e;
 	border-bottom: 2px solid #6e6e6e;
 	border-left: 2px solid #fdfdfd;
+	
+	
+	display: none;
+}
+
+#status {
+	margin-top: 2em;
+	font-size: x-large;
+	text-align: center;
 }
 
 #new_game {
@@ -138,7 +145,6 @@ body {
 </head>
 <body>
 <div id="container">
-<div id="main">
 	<div id="controls">
 		<div id="settings">
 			<input id="board_size_slider" name="board_size_slider" type="range" min="8" max="32" step="8" value="8">
@@ -152,13 +158,19 @@ body {
 			<button id="new_game">New Game</button>
 			<button id="validate" disabled>Validate</button>
 			<button id="cheat" disabled>Cheat</button>
+			<br>
+			<button id="save" disabled>Save</button>
+			<button id="load">Load</button>
 		</div>
+		
+		<div id="status"></div>
+		
+		<div id="saveState"></div>
 	</div>
 	
 	<div id="content">
 		<div id="minesweeper"></div>
 	</div>
-</div>
 </div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
@@ -170,9 +182,8 @@ $(document).ready(function() {
 	
 		// Text names of numbers, used for CSS classes.
 		var numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'],
-			width, height, mines, $boardElem, boardState, tilesRemaining,
-			isMouseDown = false,
-			gameListener;
+			width, height, mines, $boardElem, boardState, tilesRemaining, hasCheated = false,
+			isMouseDown = false, gameListener;
 		
 		my.Util = {
 			// Ensure that the input is between min and max, setting it to either end of the bound (preferring min) if it does not fit.
@@ -224,22 +235,17 @@ $(document).ready(function() {
 				return neighbors;
 			},
 
-			get: function(board, index, $tile) {
+			// "Constructor" for a Tile object.
+			create: function(index, $tile) {
 				var that = this,
-					coordinates = BOARD.Util.coordinatesForIndex(index),
 					flag = '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg"> <g> <rect fill="#000000" stroke="#000000" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="2.5" y="12.5" width="11" height="1" id="svg_2"/> <rect fill="#000000" stroke="#000000" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="5" y="11.5" width="6" height="0.5" id="svg_4"/> <rect id="svg_8" height="5.7" width="0.5" y="5" x="8" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" stroke-width="null" stroke="#000000" fill="#000000"/> <rect id="svg_9" height="0" width="0.1" y="11" x="10.3" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" stroke-width="null" stroke="#000000" fill="#000000"/> <path stroke="#ff0000" transform="rotate(-90 5.69571 4.3)" id="svg_6" d="m3.06001,7.1l2.63572,-5.6l2.6357,5.6l-5.27143,0l0.00001,0z" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" stroke-width="null" fill="#ff0000"/> </g> </svg>',
 					mine = '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg"> <g> <circle stroke="#000000" id="svg_2" r="2.915" cy="8" cx="8" stroke-width="5" fill="#000000"/> <line stroke="#000000" id="svg_4" y2="13.33333" y1="16" x2="8" x1="8" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <line stroke="#000000" id="svg_6" y2="2.66667" y1="0" x2="8" x1="8" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <line stroke="#000000" id="svg_8" y2="8" y1="8" x2="16" x1="13.33333" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <line stroke="#000000" id="svg_10" y2="8" y1="8" x2="2.66667" x1="0" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null"/> <rect stroke="#000000" id="svg_1" height="0.352" width="0.352" y="2.66667" x="2.66667" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" id="svg_3" height="0.352" width="0.352" y="2.66667" x="12.97067" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" id="svg_5" height="0.352" width="0.352" y="12.97067" x="12.97067" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" id="svg_7" height="0.352" width="0.352" y="12.97067" x="2.66667" stroke-linecap="null" stroke-linejoin="null" stroke-dasharray="null" fill="none"/> <rect stroke="#000000" fill="#ffffff" stroke-width="0" stroke-dasharray="null" stroke-linejoin="null" stroke-linecap="null" x="4.8" y="4.8" width="3.25" height="3.5" id="svg_14"/> </g> </svg>';
-			
-				$.data($tile, 'column', coordinates.column);
-				$.data($tile, 'row', coordinates.row);
 				
 				return {
 					mined: false,
 					flagged: false,
 					number: 0,
 					$tile: $tile,
-					column: coordinates.column,
-					row: coordinates.row,
 					
 					// Returns an array of Tiles that are adjacent to this tile, including diagonals.
 					getNeighbors: function() {
@@ -261,7 +267,7 @@ $(document).ready(function() {
 						return this.$tile.hasClass('depressed');
 					},
 					
-					// Reveals the contents of this tile. Set revealMisflagged to show misflagged tiles. Otherwise, they will be shown as regular flags.
+					// Reveals the contents of this tile. Set revealMisflagged to reveal misflagged tiles. Otherwise, they will be shown as regular flags.
 					reveal: function(revealMisflagged) {
 						var $t = this.$tile;
 						
@@ -281,9 +287,9 @@ $(document).ready(function() {
 						}
 					},
 					
+					// Recursively handle the effect of clicking on this tile and its neighbors, as appropriate.
 					depress: function() {
-						var tiles, t,
-							i, n, neighbors, neighborTile;
+						var i, n, neighbors, neighborTile;
 						
 						if (this.mined) {
 							this.$tile.addClass('mined');
@@ -302,7 +308,7 @@ $(document).ready(function() {
 							}
 						}
 						
-						this.$tile.trigger('minesweeper.tileDepressed', this);
+						this.$tile.trigger('minesweeper.tileDepressed');
 					}
 				};
 			}
@@ -332,6 +338,24 @@ $(document).ready(function() {
 			$boardElem.css('height', 20 * height);
 		}
 		
+		function disable() {
+			$boardElem.off('mousedown');
+			$boardElem.off('mouseup');
+		}
+		
+		// Reveals all mine squares and incorrectly flagged tiles.
+		function revealMines() {
+			var i, n;
+			
+			for (i = 0, n = boardState.length; i < n; i++) {
+				if (boardState[i].flagged && !boardState[i].mined) {
+					boardState[i].reveal(true);
+				} else if (!boardState[i].flagged && boardState[i].mined) {
+					boardState[i].reveal();
+				}
+			}
+		}
+		
 		function attachEventHandlers() {
 			$boardElem.on({
 				mousedown: function(event) {
@@ -345,13 +369,10 @@ $(document).ready(function() {
 						if (!isMouseDown && !tile.isDepressed()) { // If we're not already in the middle of a left-click and tile is not already depressed...
 							tile.setFlagged(!tile.flagged);
 						}
-						
-						return;
 					} else {
 						isMouseDown = true;
+						$(this).trigger('mouseenter');
 					}
-					
-					$(this).trigger('mouseenter');
 				},
 				
 				mouseenter: function() {
@@ -398,10 +419,13 @@ $(document).ready(function() {
 					return false;
 				},
 				
-				'minesweeper.tileDepressed': function(event, tile) {
+				'minesweeper.tileDepressed': function() {
 					tilesRemaining -= 1;
-					if (tilesRemaining <= 0) {
+					
+					if (tilesRemaining == 0) {
 						$boardElem.trigger('minesweeper.victory');
+					} else if (tilesRemaining < 0) {
+						console.error("Tiles remaining dropping below zero.");
 					}
 				}
 			}, 'div.tile');
@@ -417,13 +441,17 @@ $(document).ready(function() {
 						}
 					}
 
-					BOARD.gameListener.victory();
-					disable();
+					gameListener.victory({ hasCheated: hasCheated });
+					$boardElem.trigger('minesweeper.end');
 				},
 				
 				'minesweeper.defeat': function() {
-					BOARD.gameListener.defeat();
 					revealMines();
+					gameListener.defeat({ hasCheated: hasCheated });
+					$boardElem.trigger('minesweeper.end');
+				},
+				
+				'minesweeper.end': function() {
 					disable();
 				}
 			});
@@ -457,32 +485,12 @@ $(document).ready(function() {
 			}
 		}
 		
-		// Reveals all mine squares and incorrectly flagged tiles.
-		function revealMines() {
-			var i, n;
-			
-			for (i = 0, n = boardState.length; i < n; i++) {
-				if (boardState[i].flagged && !boardState[i].mined) {
-					boardState[i].reveal(true);
-				} else if (!boardState[i].flagged && boardState[i].mined) {
-					boardState[i].reveal();
-				}
-			}
-		}
-		
-		function disable() {
-			$boardElem.off('mousedown');
-			$boardElem.off('mouseup');
-		}
-		
 		function initializeBoardState() {
 			var tiles = $boardElem.children('div.tile').toArray(),
-				i, n,
-				$tile;
+				i, n;
 			
 			for (i = 0, n = tiles.length; i < n; i++) {
-				$tile = $(tiles[i]);
-				boardState[i] = BOARD.Tile.get({ $boardElem: $boardElem }, i, $(tiles[i]));
+				boardState[i] = BOARD.Tile.create(i, $(tiles[i]));
 				$(tiles[i]).data('tile', boardState[i]);
 			}
 		}
@@ -494,8 +502,8 @@ $(document).ready(function() {
 		
 		// Initializes game state but does not render the board.
 		// gameListener: callback for game events.
-		my.init = function(gameListener, myWidth, myHeight, myMines) {
-			BOARD.gameListener = gameListener || {};
+		my.init = function(myGameListener, myWidth, myHeight, myMines) {
+			gameListener = myGameListener || gameListener || {};
 			
 			// Width of board, in tiles.
 			width = BOARD.Util.sanitizeBound(myWidth, 8, 128);
@@ -508,6 +516,10 @@ $(document).ready(function() {
 			$boardElem = null;
 			// Array of objects describing state of board. See: initializeBoardState()
 			boardState = [];
+			
+			hasCheated = false;
+			
+			mines = 1;
 			
 			// Number of pressable tiles left.
 			tilesRemaining = width * height - mines;
@@ -525,7 +537,7 @@ $(document).ready(function() {
 			var i = 0, n = boardState.length, valid = true;
 			
 			while (i < n) {
-				if (boardState[i].flagged && !boardState[i].mined || !boardState[i].flagged && boardState[i].mined) {
+				if ((boardState[i].flagged && !boardState[i].mined) || (!boardState[i].flagged && boardState[i].mined)) {
 					valid = false;
 					break;
 				}
@@ -543,6 +555,7 @@ $(document).ready(function() {
 		my.cheat = function(shouldCheat) {
 			var i, n;
 			
+			hasCheated = true;
 			if (boardState) {
 				for (i = 0, n = boardState.length; i < n; i++) {
 					if (boardState[i].mined) {
@@ -554,24 +567,85 @@ $(document).ready(function() {
 					}
 				}
 			}
-		},
+		};
 		
 		my.victory = function() {
 			if ($boardElem) {
 				$boardElem.trigger('minesweeper.victory');
 			}
-		},
+		};
 		
 		my.defeat = function() {
 			if ($boardElem) {
 				$boardElem.trigger('minesweeper.defeat');
 			}
-		}
+		};
+		
+		// Gather game state and return as JSON.
+		my.save = function() {
+			var i = 0, n = boardState.length, state = {}, tile, currentBoard = [];
+			
+			state.game = {
+				width: width,
+				height: height,
+				mines: mines,
+				tilesRemaining: tilesRemaining,
+				hasCheated: hasCheated
+			};
+			
+			
+			for (; i < n; i++) {
+				tile = $.extend({}, boardState[i]);
+				delete tile.$tile;
+				
+				currentBoard[i] = tile;
+			}
+			state.board = currentBoard;
+			
+			return JSON.stringify(state);
+		};
+		
+		// Gather game state and return as JSON.
+		my.load = function(stateJson) {
+			var json = $.parseJSON(stateJson),
+				i, n, tile, loadedBoard;
+			
+			BOARD.init(undefined, json.game.width, json.game.height, json.game.mines);
+
+			tilesRemaining = json.game.tilesRemaining;
+			hasCheated = json.game.hasCheated;
+			BOARD.render($('#minesweeper'));
+			
+			loadedBoard = json.board;
+			for (i = 0, n = boardState.length; i < n; i++) {
+				boardState[i] = $.extend(boardState[i], loadedBoard[i]);
+			}
+		};
 		
 		return my;
 	}(BOARD || {}));
 
-	BOARD.init();
+	// Initialize the game state from the page controls;
+	function initializeFromPage() {
+		BOARD.init({
+			victory: function(state) {
+				if (state.hasCheated) {
+					$('#status').html('Victory (with cheating)!');
+				} else {
+					$('#status').html('Victory!');
+				}
+				$('#new_game').click();
+			},
+			defeat: function(state) {
+				if (state.hasCheated) {
+					$('#status').html('Defeat (with cheating)!');
+				} else {
+					$('#status').html('Defeat!');
+				}
+				$('#new_game').click();
+			}
+		}, $('#board_size').html(), $('#board_size').html(), $('#mines').html());
+	}
 	
 	$('#board_size_slider').on('change', function() {
 		$('#board_size').html(this.value);
@@ -607,35 +681,32 @@ $(document).ready(function() {
 	
 	$('#new_game').on('click', function(event) {
 		if ($(this).data('isInGame')) {
+			// End the current game.
 			if (event.which) {
 				// If the event was manually triggered, signal defeat. Otherwise, it's the game resetting itself.
 				BOARD.defeat();
 			}
-			
+				
 			$(this).removeData('isInGame');
 			$('#new_game').html('New Game');
 			
-			enable([ $('#board_size_slider'), $('#mines_slider') ]);
-			disable([ $('#validate'), $('#cheat') ]);
+			enable([ $('#board_size_slider'), $('#mines_slider'), $('#load') ]);
+			disable([ $('#validate'), $('#cheat'), $('#save') ]);
 		} else {
+			// Initialize a new state for next time.
+			initializeFromPage();
+			BOARD.render($('#minesweeper'));
+			
+			// Start a new game.
+			$('#minesweeper').css('display', 'block');
+			
 			$(this).data('isInGame', true);
 			$('#cheat').trigger('cheat.reset');
 			$('#new_game').html('Reset');
+			$('#status').html('');
 			
-			BOARD.init({
-				victory: function() {
-					console.log('Victory!');
-					$('#new_game').click()
-				},
-				defeat: function() {
-					console.log('Defeat!');
-					$('#new_game').click()
-				}
-			}, $('#board_size').html(), $('#board_size').html(), $('#mines').html());
-			BOARD.render($('#minesweeper'));
-			
-			disable([ $('#board_size_slider'), $('#mines_slider') ]);
-			enable([ $('#validate'), $('#cheat') ]);
+			disable([ $('#board_size_slider'), $('#mines_slider'), $('#load') ]);
+			enable([ $('#validate'), $('#cheat'), $('#save') ]);
 		}
 	});
 	
@@ -659,6 +730,15 @@ $(document).ready(function() {
 			$(this).removeData('isCheating');
 			$('#cheat').html('Cheat');
 		}
+	});
+	
+	$('#save').on('click', function() {
+		$('#saveState').html(BOARD.save());
+	});
+	
+	$('#load').on('click', function() {	
+		var json = prompt('Enter save data');
+		BOARD.load(json);
 	});
 });
 </script>
