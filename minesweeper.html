@@ -785,10 +785,12 @@ $(document).ready(function() {
 		
 		return my;
 	}(BOARD || {}));
-	
-	// Initialize the game state from the page controls;
+		
+	// Initialize the game state from the page controls.
 	function initializeFromPage() {
 		BOARD.init({
+			mines: $('#board_mines').html(),
+			
 			victory: function(state) {
 				if (state.hasCheated) {
 					$('#status').html('Victory (with cheating)!');
@@ -806,8 +808,15 @@ $(document).ready(function() {
 				$('#new_game').click();
 			},
 			tileFlagged: function() {
+				this.mines -= 1;
+				this.updateMines();
 			},
 			tileUnflagged: function() {
+				this.mines += 1;
+				this.updateMines();
+			},
+			updateMines: function() {
+				$('#status').html('Mines left: ' + this.mines);
 			}
 		}, $('#board_size').html(), $('#board_size').html(), $('#board_mines').html());
 	}
@@ -820,7 +829,7 @@ $(document).ready(function() {
 		switch (boardDifficulty) {
 			case 'normal': mines = Math.max(15, Math.floor(boardSize * boardSize / 6.5)); break;
 			case 'hard': mines = Math.max(20, Math.floor(boardSize * boardSize / 5)); break;
-			default: mines = Math.max(10, Math.floor(boardSize * boardSize / 8)); break;
+			default: mines = Math.max(10, Math.floor(boardSize * boardSize / 8.5)); break;
 		}
 		
 		$('#board_size').html(boardSize);
