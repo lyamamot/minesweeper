@@ -491,8 +491,13 @@ $(document).ready(function() {
 					}
 				},
 				
-				mouseenter: function() {
+				mouseenter: function(event) {
 					var tile = $(this).data('tile');
+					
+					if (event.which === 0) {
+						// User lifted mouse button while outside of board. Reset mousedown state.
+						isMouseDown = false;
+					}
 					
 					$(this).data('wasDepressed', tile.isDepressed());
 					if (isMouseDown && !tile.flagged) {	
