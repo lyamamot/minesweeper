@@ -218,6 +218,7 @@ body {
 }
 
 #save_state {
+	margin-top: 1.5em;
 	word-wrap: break-word;
 }
 
@@ -965,7 +966,7 @@ $(document).ready(function() {
 	
 	$('#save').on('click', function() {
 		saveState = BOARD.save();
-		$('#save_state').html('<h3>Save Data</h3><p>Copy this code to be able to load your game with the Load Data button.</p><div id="save_data">' + saveState + '</div>');
+		$('#save_state').html('<p><strong>Game saved.</strong></p><p>Copy the following code for use with the Load Data button:</p><div id="save_data">' + saveState + '</div>');
 		enable([ $('#load') ]);
 	});
 	
