@@ -46,6 +46,7 @@
 .number, .icon {
 	top: 50%;
 	position: absolute;
+	font-size: large;
 	font-family: Arial Black, sans-serif;
 	font-weight: bold;
 	text-align: center;
@@ -81,9 +82,9 @@
 /* -------------------------------------------------------------------- */
 
 body {
-	color: #fff;
-	background: #56735e;
-	font-family: sans-serif;
+	background: #98A942;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 12px;
 }
 
 #container {
@@ -100,7 +101,7 @@ body {
 	margin: 0;
 }
 
-#controls {
+.game_options {
 	width: 275px;
 	max-width: 275px;
 	float: left;
@@ -110,20 +111,84 @@ body {
 	margin: 0;
 }
 
-#settings {
-	padding: 0 0.5em 1em 0.5em;
+#filters {
+	margin-bottom: 1em;
 }
 
-#settings label {
-	margin-left: 0.5em;
-	position: relative;
-	top: -0.4em;
+#filters h2 {
+	text-color: #141D14;
 }
 
-#settings .slider_value {
+#filters h2 div {
 	display: inline;
-	position: relative;
-	top: -0.4em;
+}
+
+.game_options input[type=radio] {
+	display: none;
+}
+
+.game_options label {
+	display: inline;
+	padding: 0.25em 0.6em;
+	padding-left: 0.5em;
+	
+	-webkit-user-select: none;
+	user-select: none;
+	
+	cursor: pointer;
+	
+	color: #000;
+	
+	background: white;
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(1%,white), color-stop(100%,#D2D2D2));
+	background: -webkit-linear-gradient(top, white 1%,#D2D2D2 100%);
+	background: linear-gradient(top, white 1%,#D2D2D2 100%);
+
+	box-shadow:
+		0px 0px 0px 1px #aaa,
+        1px 0px 0px 0px rgba(255,255,255,0.9) inset,
+        0px 1px 2px rgba(0,0,0,0.2);
+}
+
+.game_options div.filter span:first-of-type label {
+	border-radius: 5px 0 0 5px;
+	-moz-border-radius: 5px 0 0 5px;
+	-webkit-border-radius: 5px 0 0 5px;
+}
+
+.game_options div.filter span:last-of-type label {
+	border-radius: 0 5px 5px 0;
+	-moz-border-radius: 0 5px 5px 0;
+	-webkit-border-radius: 0 5px 5px 0;
+}
+
+.game_options input:checked ~ label {
+	background: #4EB6A6;
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#4EB6A6), color-stop(100%,#2D6960));
+	background: -webkit-linear-gradient(top, #4EB6A6 0%, #2D6960 100%);
+	background: linear-gradient(top, #4EB6A6 0%, #2D6960 100%);
+	
+    color: #EFE672;
+	
+    box-shadow:
+		0 0 0 1px #40496e,
+		0 1px 2px rgba(0,0,0,0.1) inset;
+}
+
+.game_options input:disabled ~ label {
+	color: #aaa !important;
+}
+
+.game_options input:enabled ~ label:hover {
+	background: #A7D9F5;
+	color: #000;
+	box-shadow:
+		0 0 0 1px #4EB6A6,
+		0 1px 2px rgba(0,0,0,0.2) inset;
+}
+
+#filter_values div {
+	display: inline;
 }
 
 #content {
@@ -140,9 +205,12 @@ body {
 	border-right: 2px solid #6e6e6e;
 	border-bottom: 2px solid #6e6e6e;
 	border-left: 2px solid #fdfdfd;
-	
-	
+
 	display: none;
+}
+
+#buttons {
+	margin-top: 3em;
 }
 
 #status {
@@ -159,13 +227,41 @@ body {
 </head>
 <body>
 <div id="container">
-	<div id="controls">
-		<div id="settings">
-			<input id="board_size_slider" name="board_size_slider" type="range" min="8" max="32" step="8" accesskey="b" value="8">
-			<label for="board_size_slider">Board size: </label><div class="slider_value" id="board_size"></div>
-
-			<input id="mines_slider" name="mines_slider" type="range" min="1" max="8" accesskey="m" value="1">
-			<label for="mines_slider">Mines: </label><div class="slider_value" id="mines"></div>
+	<div class="game_options">
+		<div id="filters">
+			<h2>Board size: <div id="board_size"></div></h2>
+			<div id="filter_board_size" class="filter">
+			<span>
+				<input id="filter_size_small" name="board_size" type="radio" class="filter_selector_size_small" checked value="8" />
+				<label for="filter_size_small" class="filter_label_size_small" accesskey="s">Small</label>
+			</span>
+			<span>
+				<input id="filter_size_medium" name="board_size" type="radio" class="filter_selector_size_medium" value="16" />
+				<label for="filter_size_medium" class="filter_label_size_medium" accesskey="m">Medium</label>
+			</span>
+			<span>
+				<input id="filter_size_large" name="board_size" type="radio" class="filter_selector_size_large" value="32" />
+				<label for="filter_size_large" class="filter_label_size_large" accesskey="l">Large</label>
+			</span>
+			</div>
+			
+			<br />
+			
+			<h2>Mines: <div id="board_mines"></div></h2>
+			<div id="filter_board_difficulty" class="filter">
+			<span>
+				<input id="filter_difficulty_easy" name="board_difficulty" type="radio" class="filter_selector_difficulty_easy" checked value="easy" />
+				<label for="filter_difficulty_easy" class="filter_label_difficulty_easy" accesskey="e">Easy</label>
+			</span>
+			<span>
+				<input id="filter_difficulty_normal" name="board_difficulty" type="radio" class="filter_selector_difficulty_normal" value="normal" />
+				<label for="filter_difficulty_normal" class="filter_label_difficulty_normal" accesskey="n">Normal</label>
+			</span>
+			<span>
+				<input id="filter_difficulty_hard" name="board_difficulty" type="radio" class="filter_selector_difficulty_hard" value="hard" />
+				<label for="filter_difficulty_hard" class="filter_label_difficulty_hard" accesskey="h">Hard</label>
+			</span>
+			</div>
 		</div>
 		
 		<div id="buttons">
@@ -565,7 +661,7 @@ $(document).ready(function() {
 			
 			// Number of depressable tiles left.
 			tilesRemaining = width * height - mines;
-			
+
 			hasCheated = false;
 		};
 		
@@ -695,29 +791,26 @@ $(document).ready(function() {
 				}
 				$('#new_game').click();
 			}
-		}, $('#board_size').html(), $('#board_size').html(), $('#mines').html());
+		}, $('#board_size').html(), $('#board_size').html(), $('#board_mines').html());
 	}
-	initializeFromPage();
 	
-	$('#board_size_slider').on('change', function() {
-		$('#board_size').html(this.value);
-		$('#mines_slider').change();
-	});
-	$('#board_size_slider').change();
-	
-	$('#mines_slider').on('change', function() {
-		var boardSize = $('#board_size').html(),
-			mineCount = Math.floor(boardSize * boardSize / 2 / (8 - this.value + 1));
-			
-		if (mineCount < 10) {
-			mineCount = 10;
+	$('#filters input').on('change', function() {
+		var boardSize = $('#filter_board_size input:checked').val(),
+			boardDifficulty = $('#filter_board_difficulty input:checked').val(),
+			mines;
+		
+		switch (boardDifficulty) {
+			case 'normal': mines = Math.max(15, Math.floor(boardSize * boardSize / 6.5)); break;
+			case 'hard': mines = Math.max(20, Math.floor(boardSize * boardSize / 5)); break;
+			default: mines = Math.max(10, Math.floor(boardSize * boardSize / 8)); break;
 		}
 		
-		$('#mines').html(mineCount);
+		$('#board_size').html(boardSize);
+		$('#board_mines').html(mines);
 		
 		initializeFromPage();
 	});
-	$('#mines_slider').change();
+	$('#filters input').change();
 	
 	function enable(elems) {
 		elems = elems || [];
@@ -745,7 +838,7 @@ $(document).ready(function() {
 			$('#new_game').html('New Game');
 			$('#saveState').html('');
 			
-			enable([ $('#board_size_slider'), $('#mines_slider'), $('#load') ]);
+			enable([ $('#filters input'), $('#load') ]);
 			disable([ $('#validate'), $('#cheat'), $('#save') ]);
 			
 			initializeFromPage();
@@ -760,7 +853,7 @@ $(document).ready(function() {
 			$('#new_game').html('Reset');
 			$('#status').html('');
 			
-			disable([ $('#board_size_slider'), $('#mines_slider'), $('#load') ]);
+			disable([ $('#filters input'), $('#load') ]);
 			enable([ $('#validate'), $('#cheat'), $('#save') ]);
 		}
 	});
