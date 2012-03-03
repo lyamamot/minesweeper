@@ -274,7 +274,8 @@ body {
 			<button id="cheat" disabled accesskey="c">Cheat</button>
 			<br>
 			<button id="save" disabled accesskey="s">Save</button>
-			<button id="load" accesskey="l">Load</button>
+			<button id="load" disabled accesskey="l">Load</button>
+			<button id="load_data" accesskey="d">Load Data</button>
 		</div>
 		
 		<div id="status"></div>
@@ -840,11 +841,26 @@ $(document).ready(function() {
 		});
 	}
 	
+	// Set the game controls to the 'in-game' state.
+	function setGameControls() {
+		$('#minesweeper').css('display', 'block');
+			
+		$('#cheat').trigger('cheat.reset');
+		$('#new_game').html('Reset');
+		$('#status').html('');
+		
+		if (saveState === '') {
+			disable([ $('#load') ]);
+		}
+		
+		disable([ $('#filters input') ]);
+		enable([ $('#validate'), $('#cheat'), $('#save') ]);
+	}
+	
 	// Reset the game controls for a new game.
 	function resetGameControls() {
 		$('#new_game').html('New Game');
 		$('#saveState').html('');
-		saveState = null;
 		
 		enable([ $('#filters input') ]);
 		disable([ $('#validate'), $('#cheat'), $('#save') ]);
@@ -913,22 +929,17 @@ $(document).ready(function() {
 			BOARD.defeat();
 			resetGameControls();
 		} else {
+			// Start a new game.
 			initializeFromPage();
+			
+			// Clear save state.
 			if (saveState) {
-				BOARD.load(saveState);
+				saveState = null;
+				disable([ $('#load') ]);
 			}
 			
 			BOARD.render($('#minesweeper'));
-			
-			// Start a new game.
-			$('#minesweeper').css('display', 'block');
-			
-			$('#cheat').trigger('cheat.reset');
-			$('#new_game').html('Reset');
-			$('#status').html('');
-			
-			disable([ $('#filters input') ]);
-			enable([ $('#validate'), $('#cheat'), $('#save') ]);
+			setGameControls();
 		}
 	});
 	
@@ -957,18 +968,21 @@ $(document).ready(function() {
 	$('#save').on('click', function() {
 		saveState = BOARD.save();
 		$('#saveState').html(saveState);
+		enable([ $('#load') ]);
 	});
 	
 	$('#load').on('click', function() {	
-		if (BOARD.isInGame()) {
-			if (saveState) {
-				initializeFromPage();
-				BOARD.load(saveState);
-				BOARD.render($('#minesweeper'));
-			}
-		} else {
-			saveState = prompt('Enter save data:');
+		if (saveState) {
+			initializeFromPage();
+			BOARD.load(saveState);
+			BOARD.render($('#minesweeper'));
+			setGameControls();
 		}
+	});
+	
+	$('#load_data').on('click', function() {
+		saveState = prompt('Enter save data:');
+		$('#load').click();
 	});
 });
 </script>
