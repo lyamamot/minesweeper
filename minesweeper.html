@@ -302,7 +302,7 @@ $(document).ready(function() {
 	
 		// Text names of numbers, used for CSS classes.
 		var numbers = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'],
-			width, height, mines, $boardElem, boardState, tilesRemaining, hasCheated = false,
+			width, height, mines, $boardElem, boardState, tilesRemaining, minesRemaining, hasCheated = false,
 			isMouseDown = false, isInGame = false,
 			isLoaded = false, // Whether or not the current game state comes from a loaded game.
 			gameListener;
@@ -582,10 +582,12 @@ $(document).ready(function() {
 				},
 				
 				'minesweeper.tile.flagged': function() {
+					minesRemaining -= 1;
 					gameListener.tileFlagged();
 				},
 				
 				'minesweeper.tile.unflagged': function() {
+					minesRemaining += 1;
 					gameListener.tileUnflagged();
 				}
 			}, 'div.tile');
@@ -707,6 +709,9 @@ $(document).ready(function() {
 			// Number of depressable tiles left.
 			tilesRemaining = width * height - mines;
 
+			// This is not an absolute count of mines remaining, but rather, a count of (mines - [number of flagged tiles]). This value could be negative.
+			minesRemaining = mines;
+			
 			hasCheated = false;
 		};
 		
@@ -770,7 +775,7 @@ $(document).ready(function() {
 		my.save = function() {
 			var i, n = boardState.length, game;
 			
-			game = width + '|' + height + '|' + mines + '|' + tilesRemaining + '|' + (hasCheated ? 1 : 0) + '-';
+			game = width + '|' + height + '|' + mines + '|' + tilesRemaining + '|' + minesRemaining + '|' + (hasCheated ? 1 : 0) + '-';
 			
 			for (i = 0; i < n; i++) {
 				game += (boardState[i].mined ? 1 : 0);
@@ -799,7 +804,8 @@ $(document).ready(function() {
 				BOARD.init(undefined, gameState[0], gameState[1], gameState[2]);
 				isLoaded = true;
 				tilesRemaining = gameState[3];
-				hasCheated = "1" === gameState[4];
+				minesRemaining = gameState[4];
+				hasCheated = "1" === gameState[5];
 
 				for (i = 0, n = tileStates.length / 4; i < n; i++) {
 					j = i * 4;
@@ -819,6 +825,14 @@ $(document).ready(function() {
 		
 		my.isInGame = function() {
 			return isInGame;
+		};
+
+		my.getTilesRemaining = function() {
+			return tilesRemaining;
+		};
+		
+		my.getMinesRemaining = function() {
+			return minesRemaining;
 		};
 		
 		return my;
@@ -846,7 +860,7 @@ $(document).ready(function() {
 			
 		$('#cheat').trigger('cheat.reset');
 		$('#new_game').html('Reset');
-		$('#status').html('Mines left: ' + $('#board_mines').html());
+		$('#status').html('Mines left: ' + BOARD.getMinesRemaining());
 		
 		if (saveState === '') {
 			disable([ $('#load') ]);
@@ -868,8 +882,6 @@ $(document).ready(function() {
 	// Initialize the game state from the page controls.
 	function initializeFromPage() {
 		BOARD.init({
-			mines: $('#board_mines').html(),
-			
 			victory: function(state) {
 				if (state.hasCheated) {
 					$('#status').html('Victory (with cheating)!');
@@ -899,7 +911,7 @@ $(document).ready(function() {
 			},
 			
 			updateMines: function() {
-				$('#status').html('Mines left: ' + this.mines);
+				$('#status').html('Mines left: ' + BOARD.getMinesRemaining());
 			}
 		}, $('#board_size').html(), $('#board_size').html(), $('#board_mines').html());
 	}
