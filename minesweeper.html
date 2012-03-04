@@ -393,6 +393,10 @@ $(document).ready(function() {
 					return this.$tile.hasClass('depressed');
 				},
 				
+				setDepressed = function(thisObj) {
+					return thisObj.$tile.removeAttr('tabindex').addClass('depressed');
+				},
+				
 				reveal = function(revealMisflagged) {
 					var $t = this.$tile;
 					
@@ -401,11 +405,11 @@ $(document).ready(function() {
 					} else if (this.flagged) {
 						$t.html(flaggedTile);
 					} else if (this.mined) {
-						$t.addClass('depressed').html(minedTile).attr('tabindex', -1);
+						setDepressed(this).html(minedTile);
 					} else if (this.number > 0) {
-						$t.addClass('depressed').html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>').attr('tabIndex', -1);
+						setDepressed(this).html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>');
 					} else {
-						$t.addClass('depressed').html('').attr('tabIndex', -1);
+						setDepressed(this).html('');
 					}
 					
 					return this;
@@ -496,21 +500,28 @@ $(document).ready(function() {
 				mousedown: function(event) {
 					var tile = $(this).data('tile');
 					
-					// Prevent drag behavior.
+					// Prevent focus behavior.
 					event.preventDefault();
 
 					// If it's the right mouse button that's down...
 					if (event.which === 3) {
-						if (!isMouseDown && !tile.isDepressed()) { // If we're not already in the middle of a left-click and tile is not already depressed...
+						if (!isMouseDown && !tile.isDepressed()) { // Don't do this block if the left mouse button is down or the tile is already pressed.
 							tile.setFlagged(!tile.flagged);
 						}
 					} else {
-						isMouseDown = true;
-						$(this).trigger('mouseenter');
+						if (isMouseDown) {
+							// The mouse button is already down with a mousedown event. This means that the user pressed both
+							// buttons on a tile, moved outside the board, let go of both buttons to show the context menu,
+							// then moused back over to a tile and clicked it.
+							$(this).trigger('mouseenter', { mouseAlreadyDown: true });
+						} else {
+							isMouseDown = true;
+							$(this).trigger('mouseenter');
+						}
 					}
 				},
 				
-				mouseenter: function(event) {
+				mouseenter: function(event, data) {
 					var tile = $(this).data('tile');
 					
 					if (event.which === 0) {
@@ -518,7 +529,11 @@ $(document).ready(function() {
 						isMouseDown = false;
 					}
 					
-					$(this).data('wasDepressed', tile.isDepressed());
+					// If mousedown reported that the mouse was already down, do not update the depressed state.
+					if (!data || !data.mouseAlreadyDown) {
+						$(this).data('wasDepressed', tile.isDepressed());
+					}
+					
 					if (isMouseDown && !tile.flagged) {	
 						if (!$(this).data('wasDepressed')) {
 							$(this).addClass('depressed');
