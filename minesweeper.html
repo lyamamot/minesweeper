@@ -102,7 +102,7 @@ body {
 }
 
 .game_options {
-	width: 275px;
+	width: 290px;
 	float: left;
 	border: 0;
 	padding: 15px;
@@ -226,7 +226,7 @@ body {
 	background: #EFE672;
 	border-radius: 5px 5px 5px 5px;
 	padding: 1em;
-	font-family: monospaced;
+	font-family: monospace;
 }
 
 #new_game {
@@ -584,6 +584,9 @@ $(document).ready(function() {
 					} else if (event.which == 39) { // Right arrow
 					} else if (event.which == 40) { // Down arrow
 					} */
+					
+					// Prevent keys from moving the page.
+					return false;
 				},
 				
 				'minesweeper.tile.depressed': function() {
