@@ -365,8 +365,7 @@ $(document).ready(function() {
 					
 					return (function() {
 						var x, y, adjacentTileIdx,
-							coordinates = BOARD.Util.coordinatesForIndex(thisObj.index),
-							neighbors = [];
+							coordinates = BOARD.Util.coordinatesForIndex(thisObj.index);
 						
 						for (x = -1; x <= 1; x++) {
 							for (y = -1; y <= 1; y++) {
@@ -416,8 +415,6 @@ $(document).ready(function() {
 				},
 				
 				depress = function() {
-					var i, n, neighbors, neighborTile;
-					
 					this.reveal();
 					
 					if (this.mined) {
@@ -647,9 +644,13 @@ $(document).ready(function() {
 		}
 		
 		function placeMines() {
-			var tile, tileIdx,
-				minesLeft = mines,
-				i, n, neighbors, neighborTile;
+			var tile, tileIdx, minesLeft = mines,
+				incrementNeighborNumbers = function(neighbor) {
+					//console.log('Mine: (' + tile.column + ', ' + tile.row + ') -- Adjacent Tile: (' + (neighborTile.column) + ', ' + (neighborTile.row) + ')');
+					if (!neighbor.mined) {
+						neighbor.number = (neighbor.number || 0) + 1;
+					}
+				};
 			
 			while (minesLeft > 0) {
 				// Chooose a random location to place a mine.
@@ -661,12 +662,7 @@ $(document).ready(function() {
 					tile.mined = true;
 					
 					// Increment numbers in tiles around mine.
-					tile.eachNeighbor(function(neighbor) {
-						//console.log('Mine: (' + tile.column + ', ' + tile.row + ') -- Adjacent Tile: (' + (neighborTile.column) + ', ' + (neighborTile.row) + ')');
-						if (!neighbor.mined) {
-							neighbor.number = (neighbor.number || 0) + 1;
-						}
-					});
+					tile.eachNeighbor(incrementNeighborNumbers);
 				}
 			}
 		}
@@ -830,10 +826,10 @@ $(document).ready(function() {
 					
 					// Not a complete Tile object at this point. Will get loaded on render.
 					boardState[i] = {
-						mined: "1" === tileStates.slice(j, j + 1),
-						flagged: "1" === tileStates.slice(j + 1, j + 2),
-						number: Number(tileStates.slice(j + 2, j + 3)),
-						wasDepressed: "1" === tileStates.slice(j + 3, j + 4)
+						mined: "1" === tileStates.charAt(j),
+						flagged: "1" === tileStates.charAt(j + 1),
+						number: Number(tileStates.charAt(j + 2)),
+						wasDepressed: "1" === tileStates.charAt(j + 3)
 					};
 				}
 			} catch (e) {
