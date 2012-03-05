@@ -1013,8 +1013,11 @@ $(document).ready(function() {
 	});
 	
 	$('#load_data').on('click', function() {
-		saveState = prompt('Enter save data:');
-		$('#load').click();
+		var newSaveState = prompt('Enter save data:');
+		if (newSaveState) {
+			saveState = newSaveState;
+			$('#load').click();
+		}
 	});
 });
 </script>
