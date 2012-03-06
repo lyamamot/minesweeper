@@ -364,22 +364,18 @@ $(document).ready(function() {
 				
 				// Applies a function to each neighbor of this tile.
 				eachNeighbor = function(fn) {
-					var thisObj = this;
-					
-					return (function() {
-						var x, y, adjacentTileIdx,
-							coordinates = BOARD.Util.coordinatesForIndex(thisObj.index);
+					var x, y, adjacentTileIdx,
+						coordinates = BOARD.Util.coordinatesForIndex(this.index);
 						
-						for (x = -1; x <= 1; x++) {
-							for (y = -1; y <= 1; y++) {
-								if ((coordinates.column + x >= 0 && coordinates.column + x < width && coordinates.row + y >= 0 && coordinates.row + y < height) // If the coordinates are in the bounds of the board...
-									&& (x !== 0 || y !== 0)) { // x and y are not both 0 at the same time so that the tile itself is not included in the neighbors...
-									adjacentTileIdx = BOARD.Util.indexForCoordinates(coordinates.column + x, coordinates.row + y);
-									fn.apply(this, [boardState[adjacentTileIdx]]);
-								}
+					for (x = -1; x <= 1; x++) {
+						for (y = -1; y <= 1; y++) {
+							if ((coordinates.column + x >= 0 && coordinates.column + x < width && coordinates.row + y >= 0 && coordinates.row + y < height) // If the coordinates are in the bounds of the board...
+								&& (x !== 0 || y !== 0)) { // x and y are not both 0 at the same time so that the tile itself is not included in the neighbors...
+								adjacentTileIdx = BOARD.Util.indexForCoordinates(coordinates.column + x, coordinates.row + y);
+								fn.apply(this, [boardState[adjacentTileIdx]]);
 							}
 						}
-					}());
+					}
 				},
 				
 				setFlagged = function(flagged) {
@@ -395,8 +391,8 @@ $(document).ready(function() {
 					return this.$tile.hasClass('depressed');
 				},
 				
-				setDepressed = function(thisObj) {
-					return thisObj.$tile.removeAttr('tabindex').addClass('depressed');
+				setDepressed = function($t) {
+					return $t.removeAttr('tabindex').addClass('depressed');
 				},
 				
 				reveal = function(revealMisflagged) {
@@ -407,31 +403,38 @@ $(document).ready(function() {
 					} else if (this.flagged) {
 						$t.html(flaggedTile);
 					} else if (this.mined) {
-						setDepressed(this).html(minedTile);
+						setDepressed($t).html(minedTile);
 					} else if (this.number > 0) {
-						setDepressed(this).html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>');
+						setDepressed($t).html('<div class="number ' + numbers[this.number] + '">' + this.number + '</div>');
 					} else {
-						setDepressed(this).html('');
+						setDepressed($t).html('');
 					}
 					
 					return this;
 				},
 				
-				depress = function() {
-					this.reveal();
+				depress = function(stack) {
+					var stack = [this], tile;
 					
-					if (this.mined) {
-						this.$tile.addClass('mined');
-						$boardElem.trigger('minesweeper.defeat');
-					} else if (this.number === 0) {
-						this.eachNeighbor(function(neighbor) {
-							if (!neighbor.mined && !neighbor.flagged && !neighbor.isDepressed()) {
-								neighbor.depress();
-							}
-						});
+					while (stack.length > 0) {
+						tile = stack.pop();
+						$.removeData(tile, 'considered');
+						tile.reveal();
+						
+						if (tile.mined) {
+							tile.$tile.addClass('mined');
+							$boardElem.trigger('minesweeper.defeat');
+						} else if (tile.number === 0) {
+							tile.eachNeighbor(function(neighbor) {
+								if (!neighbor.mined && !neighbor.flagged && !neighbor.isDepressed() && !$.data(neighbor, 'considered')) {
+									$.data(neighbor, 'considered', true);
+									stack.push(neighbor);
+								}
+							});
+						}
+						
+						tile.$tile.trigger('minesweeper.tile.depressed', tile);
 					}
-					
-					this.$tile.trigger('minesweeper.tile.depressed');
 				};
 				
 			return {
@@ -453,28 +456,28 @@ $(document).ready(function() {
 		
 		// Creates the markup for the board in the given element and attaches event handlers.
 		function createBoard(elem) {
-			var board = '<div class="board">',
+			var $elem = $(elem),
+				// Calculate board size based on tile dimensions and borders.
+				// Hardcode 20 = 16 tile width and height + 2 each for border.
+				// We could also use a plugin to read the CSS style.
+				board = '<div class="board" style="width: ' + (20 * width) + '; height: ' + (20 * height) +'">',
 				tile = '<div class="tile" tabindex="0"></div>',
 				i, j;
 			
 			for (i = 0; i < width; i++) {
 				for (j = 0; j < height; j++) {
 					// Debug code to see index of tile.
-					//board += tile.replace('>', ' title="' + (i * width + j) + '">');
-					board += tile;
+					//board += tile.replace('>', ' data-index="' + (i * width + j) + ' title="' + (i * width + j) + '">');
+					board += tile.replace('>', ' data-index="' + (i * width + j) + '">');
+					//board += tile;
 				}
 				board += '<br />';
 			}
 			board += '</div>';
 			
-			$(elem).html(board);
-			$boardElem = $('div.board', $(elem));
 			
-			// Calculate board size based on tile dimensions and borders.
-			// Hardcode 20 = 16 tile width and height + 2 each for border.
-			// We could also use a plugin to read the CSS style.
-			$boardElem.css('width', 20 * width);
-			$boardElem.css('height', 20 * height);
+			$elem.html(board);
+			$boardElem = $elem.find('div.board');
 		}
 		
 		function disable() {
@@ -498,7 +501,8 @@ $(document).ready(function() {
 		function attachEventHandlers() {
 			$boardElem.on({
 				mousedown: function(event) {
-					var tile = $(this).data('tile');
+					var $this = $(this),
+						tile = boardState[$this.data('index')];
 					//console.log(event.type, event.which, event.button, isMouseDown, tile.isDepressed());
 					
 					// Prevent focus behavior.
@@ -514,17 +518,19 @@ $(document).ready(function() {
 							// The mouse button is already down with a mousedown event. This means that the user pressed both
 							// buttons on a tile, moved outside the board, let go of both buttons to show the context menu,
 							// then moused back over to a tile and clicked it.
-							$(this).trigger('mouseenter', { mouseAlreadyDown: true });
+							$this.trigger('mouseenter', { mouseAlreadyDown: true });
 						} else {
 							isMouseDown = true;
-							$(this).trigger('mouseenter');
+							$this.trigger('mouseenter');
 						}
 					}
 				},
 				
 				mouseenter: function(event, data) {
-					var tile = $(this).data('tile');
+					var $this = $(this),
+						tile = boardState[$this.data('index')];
 					//console.log(event.type, event.which, event.button, isMouseDown, tile.isDepressed());
+					
 					
 					if (event.which === 0 || event.which === 2 || event.which === 3) {
 						// User lifted mouse button while outside of board. Reset mousedown state.
@@ -533,29 +539,31 @@ $(document).ready(function() {
 					
 					// If mousedown reported that the mouse was already down, do not update the depressed state.
 					if (!data || !data.mouseAlreadyDown) {
-						$(this).data('wasDepressed', tile.isDepressed());
+						$this.data('wasDepressed', tile.isDepressed());
 					}
 					
 					if (isMouseDown && !tile.flagged) {	
-						if (!$(this).data('wasDepressed')) {
-							$(this).addClass('depressed');
+						if (!$this.data('wasDepressed')) {
+							$this.addClass('depressed');
 						}
 					}
 				},
 				
 				mouseleave: function(event) {
-					var tile = $(this).data('tile');
+					var $this = $(this),
+						tile = boardState[$this.data('index')];
 					//console.log(event.type, event.which, event.button, isMouseDown, tile.isDepressed());
 					
 					if (isMouseDown && !tile.flagged) {
-						if (!$(this).data('wasDepressed')) {
-							$(this).removeClass('depressed');
+						if (!$this.data('wasDepressed')) {
+							$this.removeClass('depressed');
 						}
 					}
 				},
 				
 				mouseup: function(event) {
-					var tile = $(this).data('tile');
+					var $this = $(this),
+						tile = boardState[$this.data('index')];
 					//console.log(event.type, event.which, event.button, isMouseDown, tile.isDepressed());
 					
 					if (event.which !== 1) {
@@ -568,7 +576,7 @@ $(document).ready(function() {
 					} else if (isMouseDown) {
 						isMouseDown = false;
 						
-						if (!$(this).data('wasDepressed')) {
+						if (!$this.data('wasDepressed')) {
 							tile.depress();
 						}
 					}
@@ -579,10 +587,12 @@ $(document).ready(function() {
 				},
 				
 				keypress: function(event) {
+					var $this = $(this);
+					
 					if (event.which === 13) { // Enter
-						$(this).trigger('mousedown').trigger('mouseup');
+						$this.trigger('mousedown').trigger('mouseup');
 					} else if (event.which === 32) { // Space
-						$(this).trigger({ type: 'mousedown', which: 3 }).trigger({ type: 'mouseup', which: 3 });
+						$this.trigger({ type: 'mousedown', which: 3 }).trigger({ type: 'mouseup', which: 3 });
 					} /* else if (event.which == 37) { // Left arrow
 					} else if (event.which == 38) { // Up arrow
 					} else if (event.which == 39) { // Right arrow
@@ -593,9 +603,10 @@ $(document).ready(function() {
 					return false;
 				},
 				
-				'minesweeper.tile.depressed': function() {
+				'minesweeper.tile.depressed': function(event, tile) {
 					tilesRemaining -= 1;
 
+					//console.log(tile.index, 'depressed', tilesRemaining, 'to go');
 					if (tilesRemaining === 0) {
 						$boardElem.trigger('minesweeper.victory');
 					} else if (tilesRemaining < 0) {
@@ -675,21 +686,20 @@ $(document).ready(function() {
 		}
 		
 		function initializeBoardState() {
-			var tiles = $boardElem.children('div.tile').toArray(),
-				i, n, $t, wasDepressed;
+			var tiles = $boardElem.find('div.tile').toArray(),
+				i, n, $tile, wasDepressed;
 				
 			for (i = 0, n = tiles.length; i < n; i++) {
 				wasDepressed = false;
-				$t = $(tiles[i]);
+				$tile = $(tiles[i]);
 				if (boardState[i] && boardState[i].wasDepressed) {
 					wasDepressed = true;
 				}
-				boardState[i] = new BOARD.Tile(i, $t, boardState[i]);
+				boardState[i] = new BOARD.Tile(i, $tile, boardState[i]);
 				if (wasDepressed || boardState[i].flagged) {
 					delete boardState[i].wasDepressed;
 					boardState[i].reveal();
 				}
-				$t.data('tile', boardState[i]);
 			}
 
 			isInGame = true;
