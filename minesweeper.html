@@ -414,11 +414,11 @@ $(document).ready(function() {
 				},
 				
 				depress = function(stack) {
-					var stack = [this], tile;
+					var stack = [this], tile, considered = [];
 					
 					while (stack.length > 0) {
 						tile = stack.pop();
-						$.removeData(tile, 'considered');
+						delete considered[tile.index];
 						tile.reveal();
 						
 						if (tile.mined) {
@@ -426,8 +426,8 @@ $(document).ready(function() {
 							$boardElem.trigger('minesweeper.defeat');
 						} else if (tile.number === 0) {
 							tile.eachNeighbor(function(neighbor) {
-								if (!neighbor.mined && !neighbor.flagged && !neighbor.isDepressed() && !$.data(neighbor, 'considered')) {
-									$.data(neighbor, 'considered', true);
+								if (!neighbor.mined && !neighbor.flagged && !neighbor.isDepressed() && !considered[neighbor.index]) {
+									considered[neighbor.index] = true;
 									stack.push(neighbor);
 								}
 							});
@@ -499,6 +499,8 @@ $(document).ready(function() {
 		}
 		
 		function attachEventHandlers() {
+			var wasDepressed = [];
+			
 			$boardElem.on({
 				mousedown: function(event) {
 					var $this = $(this),
@@ -539,11 +541,11 @@ $(document).ready(function() {
 					
 					// If mousedown reported that the mouse was already down, do not update the depressed state.
 					if (!data || !data.mouseAlreadyDown) {
-						$this.data('wasDepressed', tile.isDepressed());
+						wasDepressed[tile.index] = tile.isDepressed();
 					}
 					
 					if (isMouseDown && !tile.flagged) {	
-						if (!$this.data('wasDepressed')) {
+						if (!wasDepressed[tile.index]) {
 							$this.addClass('depressed');
 						}
 					}
@@ -555,7 +557,7 @@ $(document).ready(function() {
 					//console.log(event.type, event.which, event.button, isMouseDown, tile.isDepressed());
 					
 					if (isMouseDown && !tile.flagged) {
-						if (!$this.data('wasDepressed')) {
+						if (!wasDepressed[tile.index]) {
 							$this.removeClass('depressed');
 						}
 					}
@@ -576,7 +578,7 @@ $(document).ready(function() {
 					} else if (isMouseDown) {
 						isMouseDown = false;
 						
-						if (!$this.data('wasDepressed')) {
+						if (!wasDepressed[tile.index]) {
 							tile.depress();
 						}
 					}
