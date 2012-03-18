@@ -511,7 +511,7 @@ $(document).ready(function() {
 					event.preventDefault();
 
 					// If it's the right mouse button that's down...
-					if (event.which === 3) {
+					if (event.which === 3 || (event.which === 1 && event.ctrlKey)) {
 						if (!isMouseDown && !tile.isDepressed()) { // Don't do this block if the left mouse button is down or the tile is already pressed.
 							tile.setFlagged(!tile.flagged);
 						}
@@ -534,7 +534,7 @@ $(document).ready(function() {
 					//console.log(event.type, event.which, event.button, isMouseDown, tile.isDepressed());
 					
 					
-					if (event.which === 0 || event.which === 2 || event.which === 3) {
+					if (event.which === 0 || event.which === 2 || event.which === 3 || (event.which === 1 && event.ctrlKey)) {
 						// User lifted mouse button while outside of board. Reset mousedown state.
 						isMouseDown = false;
 					}
