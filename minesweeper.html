@@ -16,13 +16,10 @@
 
 .tile {
 	position: relative;
-	width: 16px;
-	height: 16px;
-	border-top: 2px solid #fdfdfd;
-	border-right: 2px solid #6e6e6e;
-	border-bottom: 2px solid #6e6e6e;
-	border-left: 2px solid #fdfdfd;
-	background: #c0c0c0;
+	width: 20px;
+	height: 20px;
+	background: url(tilestate.gif) 0px 0 no-repeat;
+	background-color: #c0c0c0;
 	display: inline-block;
 	padding: 0;
 	margin: 0;
@@ -37,11 +34,7 @@
 }
 
 .depressed {
-	border-width: 1px 0 0 1px;
-	border-style: solid;
-	border-color: #6e6e6e;
-	width: 19px;
-	height: 19px;
+	background: url(tilestate.gif) -20px 0 no-repeat;
 }
 
 .number, .icon {
@@ -49,7 +42,7 @@
 	position: absolute;
 	font-size: large;
 	font-family: Arial Black, sans-serif;
-	font-weight: bold;
+	font-weight: 900;
 	text-align: center;
 	width: 100%;
 }
